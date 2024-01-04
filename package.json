@@ -1,0 +1,129 @@
+{
+  "name": "devpilot",
+  "displayName": "devpilot",
+  "description": "This is the extension for devpilot",
+  "version": "0.0.1",
+  "repository": {
+    "url": "https://github.com/openpilot/devpilot-vscode",
+    "type": "git"
+  },
+  "engines": {
+    "vscode": "^1.71.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "DevPilot Configuration",
+      "properties": {
+        "devpilot.language": {
+          "type": "string",
+          "description": "The language preference for DevPilot",
+          "default": "English"
+        },
+        "devpilot.provider": {
+          "type": "string",
+          "default": "openai",
+          "description": "The provider to use for DevPilot"
+        },
+        "devpilot.proxy": {
+          "type": "string",
+          "default": "http://localhost:7890",
+          "description": "The proxy to use for DevPilot"
+        },
+        "devpilot.openaiAPIKey": {
+          "type": "string",
+          "default": "sk-1234567890",
+          "description": "The OpenAI API key to use for DevPilot"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "devpilot.startup",
+        "title": "Welcome to DevPilot"
+      },
+      {
+        "command": "devpilot.explainCode",
+        "title": "Explain Code with DevPilot"
+      },
+      {
+        "command": "devpilot.fixBug",
+        "title": "Fix Bug with DevPilot"
+      },
+      {
+        "command": "devpilot.generateComment",
+        "title": "Generate Comment with DevPilot"
+      },
+      {
+        "command": "devpilot.generateTest",
+        "title": "Generate Test with DevPilot"
+      },
+      {
+        "command": "devpilot.checkPerformance",
+        "title": "Check Performance with DevPilot"
+      },
+      {
+        "command": "devpilot.codeReview",
+        "title": "Code Review with DevPilot"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "npm-run-all --parallel watch:*",
+    "watch:ext": "webpack --mode development --watch --config ./webpack/extension.config.js",
+    "package": "npm run clean && npm-run-all --parallel package:*",
+    "package:ext": "webpack --mode production --config ./webpack/extension.config.js",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "clean": "rimraf dist",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@estruyf/vscode": "^1.1.0",
+    "@types/glob": "^7.2.0",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "16.x",
+    "@types/react": "^18.0.21",
+    "@types/react-dom": "^18.0.6",
+    "@types/react-syntax-highlighter": "^15.5.11",
+    "@types/uuid": "^8.3.4",
+    "@types/vscode": "^1.71.0",
+    "@types/webpack": "^5.28.1",
+    "@types/webpack-dev-server": "^4.7.2",
+    "@typescript-eslint/eslint-plugin": "^5.31.0",
+    "@typescript-eslint/parser": "^5.31.0",
+    "@vscode/test-electron": "^2.1.5",
+    "css-loader": "^6.7.1",
+    "eslint": "^8.20.0",
+    "glob": "^8.0.3",
+    "mocha": "^10.0.0",
+    "npm-run-all": "^4.1.5",
+    "postcss-loader": "^7.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rimraf": "^3.0.2",
+    "style-loader": "^3.3.1",
+    "ts-loader": "^9.4.1",
+    "typescript": "^4.7.4",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0",
+    "webpack-dev-server": "^4.11.1"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "https-proxy-agent": "^7.0.2",
+    "react-markdown": "^9.0.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "rehype-raw": "^7.0.0"
+  }
+}
