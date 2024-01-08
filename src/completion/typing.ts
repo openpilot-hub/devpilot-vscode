@@ -50,12 +50,20 @@ export interface Message {
   role: 'user' | 'assistant' | 'system'
   username: string
   avatar: string
-  time: string
+  time: number
+  streaming: boolean
+}
+
+export interface LLMChatHandler {
+  onText: (callback: (text: string) => void) => void;
+  onInterrupted: (callback: () => void) => void;
+  result: () => Promise<string>;
+  interrup: () => void;
 }
 
 export interface LLMProvider {
   name: string;
-  chat: (messages: Message[], onText?: (text: string)=> void) => Promise<string>;
+  chat: (messages: Message[]) => Promise<LLMChatHandler>;
 }
 
 export interface LLMProviderOption {

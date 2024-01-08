@@ -1,13 +1,14 @@
 declare module 'vscode' {
   interface WebviewPanel {
     disposed: boolean;
+    chatHandler: LLMChatHandler;
   }
 }
 
 import * as fs from 'fs';
 import { join } from 'path';
 import * as vscode from 'vscode';
-import { DevPilotFunctionality } from './completion/typing';
+import { DevPilotFunctionality, LLMChatHandler } from './completion/typing';
 import { buildDevpilotMessages } from './completion/promptBuilder';
 import { configurationManager } from './configuration';
 import { createAssistantMessage } from './completion/messages';
@@ -19,7 +20,7 @@ const { llm, locale } = configurationManager();
 
 async function streamingBotAnswerIntoConversation(convo: Conversation, panel: vscode.WebviewPanel) {
   convo.addMessage(createAssistantMessage('...'));
-  
+
   panel.webview.postMessage({
     command: 'RenderChatConversation',
     payload: convo.messages
@@ -27,19 +28,29 @@ async function streamingBotAnswerIntoConversation(convo: Conversation, panel: vs
 
   let answer;
   try {
-    answer = await llm().chat(convo.messages, (text) => {
-      convo.replaceTextToLastMessage(text);
+    const handler = await llm().chat(convo.messages);
+    handler.onText((text) => {
+      convo.replaceTextToLastMessage(text, true);
       panel.webview.postMessage({
         command: 'RenderChatConversation',
         payload: convo.messages
       });
     });
+    handler.onInterrupted(() => {
+      convo.interruptLastMessage();
+      panel.webview.postMessage({
+        command: 'RenderChatConversation',
+        payload: convo.messages
+      });
+    })
+    panel.chatHandler = handler;
+    answer = await handler.result();
   } catch (err: any) {
     answer = err.message;
-    convo.replaceTextToLastMessage(err.message);
+    convo.replaceTextToLastMessage(err.message, false);
   }
 
-  convo.replaceTextToLastMessage(answer);
+  convo.replaceTextToLastMessage(answer, false);
 
   panel.webview.postMessage({
     command: 'RenderChatConversation',
@@ -83,6 +94,11 @@ function getWebviewPanel(context: vscode.ExtensionContext) {
         convo.addMessage(payload);
         renderConversationIntoWebview(convo, pan);
         await streamingBotAnswerIntoConversation(convo, pan);
+        return;
+      }
+      if (command === 'InterrupMessageStream') {
+        pan.chatHandler?.interrup();
+        return;
       }
     })
     pan.onDidDispose(() => {

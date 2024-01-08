@@ -1,7 +1,8 @@
 import { Message, LLMProviderOption, LLMProvider } from '@/completion/typing';
 import { api } from '@/util/api';
-import { readJSONStream } from '@/util/stream';
+import { readJSONStream, StreamHandler } from '@/util/stream';
 import { AxiosInstance } from 'axios';
+import { LLMChatHandler } from '../../typing';
 
 interface OpenAIMessage {
   content: string;
@@ -32,7 +33,7 @@ export default class OpenAIProvider implements LLMProvider {
     this.stream = options.stream ?? false;
   }
 
-  async chat(messages: Message[], onText?: (text: string) => void): Promise<string> {
+  async chat(messages: Message[]): Promise<LLMChatHandler> {
     if (!this.apiKey) {
       throw new Error('OpenAI API key is required');
     }
@@ -48,26 +49,54 @@ export default class OpenAIProvider implements LLMProvider {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json'
         },
-        ...(this.stream ? {responseType: 'stream'} : {}),
+        ...(this.stream ? { responseType: 'stream' } : {}),
         timeout: 60000
       });
-      
+
       if (!this.stream) {
         return response.data.choices[0].message.content;
       }
 
       let textCollected = '';
-      await readJSONStream(
-        response.data,
-        (data: any) => {
+      let onTextCallback: (text: string) => void;
+      let onInterruptedCallback: () => void;
+      let streamHandler: StreamHandler | null = null;
+      let streamDoneResolve: (value: string) => void;
+
+      const ctrl: LLMChatHandler = {
+        onText: (callback) => {
+          onTextCallback = callback;
+        },
+        onInterrupted: (callback) => {
+          onInterruptedCallback = callback;
+        },
+        result: async () => {
+          return new Promise((resolve, reject) => {
+            streamDoneResolve = resolve;
+          })
+        },
+        interrup: () => {
+          streamHandler?.interrupt?.();
+        },
+      };
+
+      streamHandler = {
+        onProgress: (data: any) => {
           const text = data.choices[0].delta.content ?? '';
           textCollected += text;
-          onText?.(textCollected);
-          
+          onTextCallback?.(textCollected);
         },
-      );
+        onInterrupted: () => {
+          onInterruptedCallback?.();
+        },
+        onDone: () => {
+          streamDoneResolve(textCollected);
+        }
+      }
+      
+      readJSONStream(response.data, streamHandler);
 
-      return textCollected;
+      return ctrl;
 
     } catch (error: any) {
       console.error('[DevPilot][EXT]', error);

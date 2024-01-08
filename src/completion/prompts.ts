@@ -14,7 +14,7 @@ Giving the code above, please explain it in detail, line by line.`,
 Giving the code above, please help to fix it:
 - Fix any typos or grammar issues.
 - Use better names as replacement to magic numbers or arbitrary acronyms.
-- Simplify the code so that it's more strait forward and easy to understand.
+- Simplify the code so that it's more straight forward and easy to understand.
 - Optimize it for performance reasons.
 - Refactor it using best practice in software engineering.
   

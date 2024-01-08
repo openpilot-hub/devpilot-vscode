@@ -10,13 +10,26 @@ export class Conversation {
     this.messages = messages;
   }
 
+  get lastMessage(): Message | null {
+    return this.messages[this.messages.length - 1] || null;
+  }
+
   addMessage(message: Message) {
     this.messages.push(message);
     return message;
   }
 
-  replaceTextToLastMessage(text: string) {
-    this.messages[this.messages.length - 1].content = text;
+  replaceTextToLastMessage(text: string, streaming: boolean = false) {
+    if (!this.lastMessage)
+      return;
+    this.lastMessage.content = text;
+    this.lastMessage.streaming = streaming;
+  }
+
+  interruptLastMessage() {
+    if (!this.lastMessage)
+      return;
+    this.lastMessage.streaming = false;
   }
 
 }
