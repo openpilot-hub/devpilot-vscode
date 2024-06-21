@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .box {
+            background: #2E2E2F;
+            border-radius: 3px;
+            padding: 15px;
+            color: #fff;
+            line-height: 18px;
+            color: var(--vscode-foreground);
+        }
+
+        .vscode-light {
+            .box {
+                background: rgba(0, 0, 0, .04);
+            }
+        }
+
+        .logo {
+            width: 26.77px;
+            height: 24px;
+            vertical-align: -6px;
+        }
+
+        a {
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <img src="{LOGO}" class="logo" />
+        <!-- Hi, I'm DevPilot，your AI coding assistant. Log in and start an AI journey！ -->
+        {welcome}
+        <div style="margin-top: 10px;">
+            <a href="command:devpilot.login">{login}</a>
+        </div>
+    </div>
+</body>
+
+</html>

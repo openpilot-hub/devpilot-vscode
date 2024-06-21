@@ -1,17 +1,20 @@
 export enum DevPilotFunctionality {
+  Welcome = 'welcome',
   ExplainCode = 'explainCode',
   FixBug = 'fixBug',
   GenerateComment = 'generateComment',
   GenerateTest = 'generateTest',
   CheckPerformance = 'checkPerformance',
-  CodeReview = 'codeReview'
+  CodeReview = 'codeReview',
+  CommentCode = 'commentCode',
+  SummaryCode = 'summaryCode',
 }
 
-export type ProviderType = 'openai' | 'azure' | 'za';
+export type ProviderType = 'OpenAI' | 'Azure' | 'ZA';
 
 export enum Locale {
-  Chinese = 'Chinese',
-  English = 'English'
+  Chinese = 'cn',
+  English = 'en',
 }
 
 export enum Language {
@@ -42,28 +45,45 @@ export enum Language {
   Markdown = 'markdown',
   Bash = 'bash',
   Shell = 'sh',
-  Other = 'other'
+  Other = 'other',
 }
 
-export interface Message {
-  content: string
-  role: 'user' | 'assistant' | 'system'
-  username: string
-  avatar: string
-  time: number
-  streaming: boolean
+export enum QuickCommand {
+  Fix = '/fix',
+  Clear = '/clear',
+}
+
+export interface CodeReference {
+  fileUrl: string;
+  fileName: string;
+  sourceCode: string;
+  selectedStartLine: number;
+  selectedEndLine: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  prompt?: string;
+  status: 'ok' | 'error';
+  role: 'user' | 'assistant' | 'system' | 'divider' | 'error';
+  username: string;
+  avatar: string;
+  time: number;
+  streaming: boolean;
+  codeRef?: CodeReference;
 }
 
 export interface LLMChatHandler {
-  onText: (callback: (text: string) => void) => void;
+  onText: (callback: (text: string, options: { id: string }) => void) => void;
   onInterrupted: (callback: () => void) => void;
   result: () => Promise<string>;
-  interrup: () => void;
+  interrupt: () => void;
 }
 
 export interface LLMProvider {
   name: string;
-  chat: (messages: Message[]) => Promise<LLMChatHandler>;
+  chat: (messages: ChatMessage[], extraOptions?: { repo: string }) => Promise<LLMChatHandler>;
 }
 
 export interface LLMProviderOption {
@@ -72,4 +92,8 @@ export interface LLMProviderOption {
   proxy?: string;
   model?: string;
   stream?: boolean;
+  username: () => string;
+  usertoken: () => string;
+  pluginVersion: () => string;
+  authType: () => string;
 }

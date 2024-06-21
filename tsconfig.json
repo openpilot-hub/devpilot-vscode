@@ -1,5 +1,4 @@
 {
-  
 	"compilerOptions": {
 		"module": "NodeNext",
 		"moduleResolution": "nodenext",

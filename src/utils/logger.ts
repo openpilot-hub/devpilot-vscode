@@ -4,30 +4,30 @@ export const logger = {
     this.isProduction = isProduction;
   },
   info(...messages: any[]) {
-    console.log('[DevPilot][EXT][INFO]', ...messages);
+    console.info('[DevPilot][INFO]', ...messages);
   },
   error(...messages: any[]) {
-    console.log('[DevPilot][EXT][ERROR]', ...messages);
+    console.error('[DevPilot][ERROR]', ...messages);
   },
   warn(...messages: any[]) {
-    console.log('[DevPilot][EXT][WARN]', ...messages);
+    console.warn('[DevPilot][WARN]', ...messages);
   },
   log(...messages: any[]) {
     if (this.isProduction) {
       return;
     }
-    console.log('[DevPilot][EXT][LOG]', ...messages);
+    console.log('[DevPilot][LOG]', ...messages);
   },
   debug(...messages: any[]) {
     if (this.isProduction) {
       return;
     }
-    console.log('[DevPilot][EXT][DEBUG]', ...messages);
+    console.debug('[DevPilot][DEBUG]', ...messages);
   },
   verbose(...messages: any[]) {
     if (this.isProduction) {
       return;
     }
-    console.log('[DevPilot][EXT][VERBOSE]', ...messages);
+    console.log('[DevPilot][VERBOSE]', ...messages);
   },
 };
