@@ -3,14 +3,17 @@ import { getCompletions } from '@/services/completion';
 import { logger } from '@/utils/logger';
 import { sleep } from '@/utils';
 import { trackCompletionAcceptance } from '../../services/tracking';
-import { getLanguageForCurrentFile } from '../promptContext';
 import LoginController from '@/authentication/controller';
 import eventsProvider from '@/providers/EventsProvider';
+import { getLanguageForMarkdown } from '@/utils/mapping';
+import { AUTH_ON } from '@/env';
+import { checkingNetwork } from '@/utils/network';
 
 export default class InlineCompletionProvider implements vscode.InlineCompletionItemProvider {
   private _context: vscode.ExtensionContext;
   private _lastTriggerId = 0;
   private _cancelToken?: AbortController;
+  private _lockCompletion?: boolean = false;
   private lastCompletionItem: {
     messageId: string;
     completionItem: vscode.InlineCompletionItem;
@@ -27,8 +30,12 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
     this._context.subscriptions.push(
       vscode.commands.registerCommand('devpilot.accept.InlineCompletion', (e) => {
         if (this.lastCompletionItem) {
-          logger.debug('Completion item accepted');
-          trackCompletionAcceptance(this.lastCompletionItem.messageId, getLanguageForCurrentFile());
+          logger.debug('=== Completion item accepted');
+          this.lockMilliseconds();
+          trackCompletionAcceptance(
+            this.lastCompletionItem.messageId,
+            getLanguageForMarkdown(vscode.window.activeTextEditor!.document.languageId)
+          );
           this.lastCompletionItem = null;
         }
       })
@@ -41,9 +48,9 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
     context: vscode.InlineCompletionContext,
     token: vscode.CancellationToken
   ): Promise<vscode.InlineCompletionList | vscode.InlineCompletionItem[] | undefined> {
-    logger.debug('provideInlineCompletionItems triggered');
+    logger.debug('=== provideInlineCompletionItems triggered');
 
-    if (position.line <= 0) return;
+    if (position.line <= 0 || this._lockCompletion) return;
 
     this._lastTriggerId++;
     const triggerId = this._lastTriggerId;
@@ -54,20 +61,24 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
       return;
     }
 
-    const { token: loginToken } = LoginController.instance.getLoginInfo();
-    if (!loginToken) return;
+    if (AUTH_ON) {
+      const { token: loginToken } = LoginController.instance.getLoginInfo();
+      if (!loginToken) return;
+    }
 
     const config = vscode.workspace.getConfiguration('devpilot');
     const autoComplete = config.get<boolean>('autoCompletion');
     if (!autoComplete) return;
 
-    logger.debug('provideInlineCompletionItems executed!');
+    logger.debug('=== provideInlineCompletionItems executed!');
 
     this._cancelToken?.abort();
     const abortController = new AbortController();
     this._cancelToken = abortController;
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspace = vscode.workspace.workspaceFolders?.[0];
+    const workspaceRoot = workspace?.uri.path;
+    const workspaceName = workspace?.name;
     const cursorCharIndex = document.offsetAt(position);
     const reqStart = Date.now();
 
@@ -75,7 +86,7 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
     const res = await getCompletions(
       {
         document: document.getText(),
-        filePath: document.uri.fsPath.replace(workspaceRoot!, ''),
+        filePath: workspaceName + document.uri.path.replace(workspaceRoot!, ''),
         language: document.languageId,
         position: cursorCharIndex!,
         completionType: 'comment',
@@ -83,12 +94,14 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
       abortController.signal
     ).catch((err) => {
       console.error(err);
+      const { authType } = LoginController.instance.getLoginInfo();
+      checkingNetwork(authType!);
       return null;
     });
     eventsProvider.onFetchCompletion.fire('END');
 
-    logger.debug('req time costs:', (Date.now() - reqStart) / 1000);
-    logger.debug('req response:', res);
+    logger.info('req time costs:', (Date.now() - reqStart) / 1000);
+    logger.info('req response:', res?.data);
 
     const textToInsert: string = res?.data?.content?.trimStart();
     const messageId = res?.data?.id;
@@ -112,5 +125,12 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
     };
 
     return [completionItem];
+  }
+
+  lockMilliseconds(milliseconds: number = 500) {
+    this._lockCompletion = true;
+    setTimeout(() => {
+      this._lockCompletion = false;
+    }, milliseconds);
   }
 }

@@ -33,7 +33,7 @@
 
 3. 修改域名以使用你自己的 AI 网关接口
 
-   位于 `devpilot-vscode/src/utils/domain.ts`
+   位于 `devpilot-vscode/src/env.ts`
 
 4. 构建 webview 内容侧
 

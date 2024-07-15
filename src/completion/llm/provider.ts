@@ -1,4 +1,4 @@
-import { LLMProvider, LLMProviderOption, ProviderType } from '../typing';
+import { LLMProvider, LLMProviderOption, ProviderType } from '../../typing';
 import ZAProvider from './provider/za';
 import OpenAIProvider from './provider/openai';
 import AzureProvider from './provider/azure';

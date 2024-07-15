@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Locale, ProviderType, LLMProvider } from './completion/typing';
+import { Locale, ProviderType, LLMProvider } from './typing';
 import llmProvider from './completion/llm/provider';
 import { logger } from './utils/logger';
 import { getCurrentPluginVersion } from './utils/vscode-extend';

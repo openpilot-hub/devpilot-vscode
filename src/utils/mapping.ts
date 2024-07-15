@@ -9,6 +9,10 @@ export function getLanguageForFileExtension(extension: string): string {
     '.cpp': 'cpp',
     '.cs': 'csharp',
     '.css': 'css',
+    '.scss': 'scss',
+    '.sass': 'sass',
+    '.less': 'less',
+    '.styl': 'stylus',
     '.dockerfile': 'dockerfile',
     '.f': 'fortran',
     '.fs': 'fsharp',
@@ -25,7 +29,6 @@ export function getLanguageForFileExtension(extension: string): string {
     '.json': 'json',
     '.jsx': 'javascriptreact',
     '.kt': 'kotlin',
-    '.less': 'less',
     '.lua': 'lua',
     '.md': 'markdown',
     '.php': 'php',
@@ -35,9 +38,7 @@ export function getLanguageForFileExtension(extension: string): string {
     '.r': 'r',
     '.rb': 'ruby',
     '.rs': 'rust',
-    '.sass': 'sass',
     '.scala': 'scala',
-    '.scss': 'scss',
     '.sh': 'shellscript',
     '.sql': 'sql',
     '.swift': 'swift',
@@ -51,4 +52,13 @@ export function getLanguageForFileExtension(extension: string): string {
 
   const ext = extension.startsWith('.') ? extension : `.${extension}`;
   return extensionToLanguageMap[ext.toLowerCase()] || 'plaintext';
+}
+
+export function getLanguageForMarkdown(langId: string) {
+  const languageMap: { [key: string]: string } = {
+    javascriptreact: 'jsx',
+    typescriptreact: 'tsx',
+  };
+
+  return languageMap[langId] || langId;
 }

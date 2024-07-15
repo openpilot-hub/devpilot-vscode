@@ -19,6 +19,10 @@ export const SyntaxLoaders = {
   swift: 'tree-sitter-swift.wasm',
   typescript: 'tree-sitter-typescript.wasm',
   typescriptreact: 'tree-sitter-tsx.wasm',
+  cpp: 'tree-sitter-cpp.wasm',
+  php: 'tree-sitter-php.wasm',
+  ruby: 'tree-sitter-ruby.wasm',
+  vue: 'tree-sitter-vue.wasm',
 };
 
 export type SupportsLanguages = keyof typeof SyntaxLoaders;

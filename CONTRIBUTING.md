@@ -33,7 +33,7 @@ Everyone is welcome to contribute to this repository.
 
 3. Update the domains to use your own AI gateway
 
-   in `devpilot-vscode/src/utils/domain.ts`
+   in `devpilot-vscode/src/env.ts`
 
 4. Build the webview content
 

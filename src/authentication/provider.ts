@@ -3,8 +3,7 @@ import vscode, { Disposable } from 'vscode';
 import { logger } from '@/utils/logger';
 import { createServer, startServer } from './helper';
 import { ILoginProvider, LoginSuccessCallback } from './types';
-import { DATA_ENV } from '@/env';
-import domain from '@/utils/domain';
+import { LOGIN } from '@/env';
 
 export default class LoginProvider implements ILoginProvider {
   private _server: Server | null;
@@ -48,11 +47,8 @@ export default class LoginProvider implements ILoginProvider {
   open(localPort: number) {
     const backUrl = encodeURIComponent(`http://127.0.0.1:${localPort}/success`);
     const source = encodeURIComponent(`Visual Studio Code`);
-    let url = domain.LOGIN;
-    if (DATA_ENV !== 'prd') {
-      // url = `http://127.0.0.1:8080`;
-      // url = `http://127.0.0.1:5173`;
-    }
+    let url = LOGIN;
+    // let url = `http://localhost:3000`;
     url += `/login?backUrl=${backUrl}&source=${source}`;
     logger.info('[Login]', 'Login url =>', url);
     vscode.env.openExternal(vscode.Uri.parse(url));

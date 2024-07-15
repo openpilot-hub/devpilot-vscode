@@ -1,5 +1,15 @@
 # Change Log
 
+## 1.6.0 (20240715)
+
+- feat: Support for generating commit message
+- feat: Add more entries. e.g. feedback，user profile，logout ... enjoying your exploring!
+
+## 1.5.4 (20240712)
+
+- feat: Allow wechat user to use inline completion.
+- feat: Network connection state checking.
+
 ## 1.5.2 (20240612)
 
 - fix: Fix a bug that caused the extension to crash when the user input /xxx in the chat.

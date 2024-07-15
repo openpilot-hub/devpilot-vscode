@@ -2,9 +2,32 @@
   "name": "devpilot",
   "displayName": "DevPilot",
   "description": "Your AI-Infused Code Copilot",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "publisher": "Zhongan",
   "icon": "assets/logo.png",
+  "homepage": "https://devpilot.zhongan.com",
+  "keywords": [
+    "pilot",
+    "devpilot",
+    "自动编程",
+    "编码助手",
+    "ai",
+    "assistant",
+    "codegen",
+    "autocomplete",
+    "autocoding",
+    "inline completion",
+    "code generation",
+    "chatglm",
+    "java",
+    "python",
+    "go",
+    "javascript",
+    "c#",
+    "php",
+    "typescript",
+    "react"
+  ],
   "repository": {
     "url": "https://github.com/openpilot-hub/devpilot-vscode",
     "type": "git"
@@ -85,7 +108,13 @@
           "type": "boolean",
           "description": "%devpilot.methodShortcut.description%",
           "default": true,
-          "order": 20
+          "order": 30
+        },
+        "devpilot.networkChecking": {
+          "type": "boolean",
+          "description": "%devpilot.networkChecking.description%",
+          "default": true,
+          "order": 40
         }
       }
     },
@@ -101,14 +130,14 @@
         "title": "%devpilot.explainCode.title%"
       },
       {
-        "command": "devpilot.fixBug",
+        "command": "devpilot.fixCode",
         "category": "DevPilot",
-        "title": "%devpilot.fixBug.title%"
+        "title": "%devpilot.fixCode.title%"
       },
       {
-        "command": "devpilot.generateComment",
+        "command": "devpilot.commentCode",
         "category": "DevPilot",
-        "title": "%devpilot.generateComment.title%"
+        "title": "%devpilot.commentCode.title%"
       },
       {
         "command": "devpilot.generateTest",
@@ -126,9 +155,34 @@
         "title": "%devpilot.codeReview.title%"
       },
       {
+        "command": "devpilot.generateCommitMsg",
+        "title": "%devpilot.generateCommit.title%",
+        "icon": "$(devpilot-logo)"
+      },
+      {
+        "command": "devpilot.abortCommitMsg",
+        "title": "%devpilot.abortCommit.title%",
+        "icon": "$(stop-circle)"
+      },
+      {
         "command": "devpilot.logout",
-        "category": "DevPilot",
-        "title": "Log out"
+        "title": "%devpilot.logout%",
+        "icon": "$(log-out)"
+      },
+      {
+        "command": "devpilot.openPersonal",
+        "title": "%devpilot.personalCenter%",
+        "icon": "$(accounts-view-bar-icon)"
+      },
+      {
+        "command": "devpilot.feedback",
+        "title": "%devpilot.feedback%",
+        "icon": "$(feedback)"
+      },
+      {
+        "command": "devpilot.openSetting",
+        "title": "%devpilot.setting%",
+        "icon": "$(settings-gear)"
       }
     ],
     "submenus": [
@@ -150,7 +204,7 @@
           "group": "1"
         },
         {
-          "command": "devpilot.fixBug",
+          "command": "devpilot.fixCode",
           "group": "1"
         },
         {
@@ -158,7 +212,7 @@
           "group": "1"
         },
         {
-          "command": "devpilot.generateComment",
+          "command": "devpilot.commentCode",
           "group": "1"
         },
         {
@@ -172,6 +226,40 @@
         {
           "command": "devpilot.startup",
           "group": "0"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "devpilot.feedback",
+          "when": "view === 'devpilot-chat'",
+          "group": "navigation"
+        },
+        {
+          "command": "devpilot.openSetting",
+          "when": "view === 'devpilot-chat'",
+          "group": "navigation"
+        },
+        {
+          "command": "devpilot.openPersonal",
+          "when": "view === 'devpilot-chat'",
+          "group": "inline@1"
+        },
+        {
+          "command": "devpilot.logout",
+          "when": "view === 'devpilot-chat'",
+          "group": "inline@2"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "devpilot.generateCommitMsg",
+          "group": "navigation@-1001",
+          "when": "scmProvider == git && !devpilot.isGeneratingCommit"
+        },
+        {
+          "command": "devpilot.abortCommitMsg",
+          "group": "navigation@-1001",
+          "when": "scmProvider == git && devpilot.isGeneratingCommit"
         }
       ]
     },

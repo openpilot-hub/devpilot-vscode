@@ -1,57 +1,52 @@
-import { configuration } from '@/configuration';
-import { logger } from '@/utils/logger';
-import { createSystemMessage, createUserMessage } from './messages';
-import * as prompts from './prompts';
-import { DevPilotFunctionality, Language, ChatMessage, CodeReference } from './typing';
+import { createUserMessage } from './messages';
+import { DevPilotFunctionality, ChatMessage, CodeReference } from '../typing';
 import l10n from '@/l10n';
 
 function wrapInCodeblock(lang: string, code: string) {
   return `\`\`\`${lang}\n${code}\n\`\`\``;
 }
 
-export function buildDevpilotSystemMessage() {
-  return createSystemMessage(
-    prompts.codeExpert.systemPrompt
-      .replace('{{LOCALE}}', configuration().llmLocale())
-      .replace('{{TIME}}', new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString())
-  );
-}
-
+/**
+ * 获取命令在对话窗口显示的文字，例：Explain this
+ * @param functionality
+ * @returns
+ */
 export function messageByFunctionality(functionality: DevPilotFunctionality): string {
   return {
-    welcome: 'Welcome',
-    explainCode: l10n.t('operation.explain'),
-    fixBug: l10n.t('operation.fix'),
-    generateComment: l10n.t('operation.comment'),
-    generateTest: l10n.t('operation.test'),
-    checkPerformance: l10n.t('operation.performance'),
-    codeReview: l10n.t('operation.review'),
-    commentCode: l10n.t('operation.comment_s'),
-    summaryCode: l10n.t('operation.summary'),
+    EXPLAIN_CODE: l10n.t('operation.explain'),
+    FIX_CODE: l10n.t('operation.fix'),
+    GENERATE_COMMENTS: l10n.t('operation.comment'),
+    GENERATE_TESTS: l10n.t('operation.test'),
+    CHECK_PERFORMANCE: l10n.t('operation.performance'),
+    REVIEW_CODE: l10n.t('operation.review'),
+    COMMENT_METHOD: l10n.t('operation.summary'),
+    GENERATE_COMMIT: '',
   }[functionality];
 }
 
 type DevpilotMessageOptions = {
   codeRef: CodeReference;
   functionality: DevPilotFunctionality;
-  language: Language;
+  /**
+   * 文档语言
+   */
+  language: string;
+  /**
+   * 用户语言
+   */
   llmLocale: 'Chinese' | 'English';
 };
 
-export function buildDevpilotMessages({ codeRef, functionality, language, llmLocale }: DevpilotMessageOptions): ChatMessage[] {
-  const userPrompt = prompts.codeExpert[functionality].replace('{{CODE}}', wrapInCodeblock(language, codeRef.sourceCode));
-
-  const langPrompt = prompts.languages[llmLocale] || prompts.languages.Chinese;
-  const prompt = userPrompt + '\n\n' + langPrompt;
-
-  logger.debug('[Prompt]', prompt);
-
+export function buildDevpilotMessages({ codeRef, language, functionality }: DevpilotMessageOptions): ChatMessage[] {
+  const newCodeRef = { ...codeRef };
+  if (newCodeRef.sourceCode) {
+    newCodeRef.sourceCode = wrapInCodeblock(language, codeRef.sourceCode);
+  }
   return [
-    buildDevpilotSystemMessage(),
     createUserMessage({
-      prompt,
       content: messageByFunctionality(functionality),
-      codeRef,
+      codeRef: newCodeRef,
+      commandType: functionality,
     }),
   ];
 }
