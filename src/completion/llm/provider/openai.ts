@@ -1,16 +1,16 @@
-import { ChatMessage, LLMProviderOption, LLMProvider } from '@/completion/typing';
+import { ChatMessage, LLMProviderOption, LLMProvider } from '@/typing';
 import { api } from '@/utils/api';
 import { logger } from '@/utils/logger';
 import { readJSONStream, StreamHandler } from '@/utils/stream';
 import { AxiosInstance } from 'axios';
-import { LLMChatHandler } from '../../typing';
+import { LLMChatHandler } from '../../../typing';
 import { maskSensitiveData } from '../../../utils/masking';
 
 type OpenAIRole = 'user' | 'assistant' | 'system';
 
 interface OpenAIMessage {
   content: string;
-  role: OpenAIRole
+  role: OpenAIRole;
 }
 
 function convertToOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
@@ -20,14 +20,13 @@ function convertToOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
     .map(
       (msg) =>
         ({
-          content: msg.prompt || msg.content,
+          content: msg.content,
           role: msg.role,
         } as OpenAIMessage)
     );
 }
 
 export default class OpenAIProvider implements LLMProvider {
-
   public name = 'OpenAI';
   public apiEndpoint: string;
   public apiKey: string;
@@ -39,7 +38,7 @@ export default class OpenAIProvider implements LLMProvider {
     this.apiEndpoint = options.apiEndpoint ?? 'https://api.openai.com/v1/chat/completions';
     this.apiKey = options.apiKey ?? '';
     this.model = options.model ?? 'gpt-3.5-turbo';
-    logger.debug('Initialize OpenAIProvider', {...options, apiKey: maskSensitiveData(this.apiKey)});
+    logger.debug('Initialize OpenAIProvider', { ...options, apiKey: maskSensitiveData(this.apiKey) });
     this.api = api({}, options.proxy);
     this.stream = options.stream ?? false;
   }
@@ -50,26 +49,30 @@ export default class OpenAIProvider implements LLMProvider {
     }
 
     try {
-      const response = await this.api.post(this.apiEndpoint, {
-        messages: convertToOpenAIMessages(messages),
-        model: this.model,
-        temperature: 0.7,
-        stream: this.stream || undefined
-      }, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
+      const response = await this.api.post(
+        this.apiEndpoint,
+        {
+          messages: convertToOpenAIMessages(messages),
+          model: this.model,
+          temperature: 0.7,
+          stream: this.stream || undefined,
         },
-        ...(this.stream ? { responseType: 'stream' } : {}),
-        timeout: 60000
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          ...(this.stream ? { responseType: 'stream' } : {}),
+          timeout: 60000,
+        }
+      );
 
       if (!this.stream) {
         return response.data.choices[0].message.content;
       }
 
       let textCollected = '';
-      let onTextCallback: (text: string, {id}: {id: string}) => void;
+      let onTextCallback: (text: string, { id }: { id: string }) => void;
       let onInterruptedCallback: () => void;
       let streamHandler: StreamHandler | null = null;
       let streamDoneResolve: (value: string) => void;
@@ -84,7 +87,7 @@ export default class OpenAIProvider implements LLMProvider {
         result: async () => {
           return new Promise((resolve, reject) => {
             streamDoneResolve = resolve;
-          })
+          });
         },
         interrupt: () => {
           streamHandler?.interrupt?.();
@@ -95,20 +98,19 @@ export default class OpenAIProvider implements LLMProvider {
         onProgress: (data: any) => {
           const text = data.choices[0].delta.content ?? '';
           textCollected += text;
-          onTextCallback?.(textCollected, {id: data.id});
+          onTextCallback?.(textCollected, { id: data.id });
         },
         onInterrupted: () => {
           onInterruptedCallback?.();
         },
         onDone: () => {
           streamDoneResolve(textCollected);
-        }
-      }
-      
+        },
+      };
+
       readJSONStream(response.data, streamHandler);
 
       return ctrl;
-
     } catch (error: any) {
       console.error('[DevPilot][EXT]', error);
       if (error.message === 'timeout of 60000ms exceeded') {
@@ -121,5 +123,4 @@ export default class OpenAIProvider implements LLMProvider {
       throw new Error('OpenAI request failed');
     }
   }
-
 }

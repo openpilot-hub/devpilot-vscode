@@ -1,16 +1,23 @@
 {
   "devpilot.startup": "新建DevPilot聊天",
   "devpilot.explainCode.title": "解释代码",
-  "devpilot.fixBug.title": "修复代码",
-  "devpilot.generateComment.title": "生成注释",
+  "devpilot.fixCode.title": "修复代码",
+  "devpilot.CommentCode.title": "生成注释",
   "devpilot.generateTest.title": "生成单测",
   "devpilot.checkPerformance.title": "性能检查",
   "devpilot.codeReview.title": "代码审查",
+  "devpilot.generateCommit.title": "生成提交注释",
+  "devpilot.abortCommit.title": "生成中...",
   "devpilot.language.description": "会话语言",
   "devpilot.autoCompletion.description": "开启自动补全",
   "devpilot.methodShortcut.description": "开启函数上快捷操作",
+  "devpilot.networkChecking.description": "开启网络状态检查",
   "devpilot.provider.description": "模型供应商（ZA默认提供了自己的模型，可以免费使用)",
   "devpilot.provider.proxy": "如有必要，可以在此设置你的代理，在模型供应商为ZA的情况下这个设置无效",
   "devpilot.provider.openaiAPIKey": "如果使用OpenAI作为模型供应商，请配置你自己的API Key",
-  "devpilot.provider.model": "你的模型选择（gpt-3.5-turbo,gpt-4,gpt-4o,etc.）"
+  "devpilot.provider.model": "你的模型选择（gpt-3.5-turbo,gpt-4,gpt-4o,etc.）",
+  "devpilot.logout": "退出登录",
+  "devpilot.feedback": "反馈",
+  "devpilot.openSetting": "设置",
+  "devpilot.openPersonal": "个人面板"
 }

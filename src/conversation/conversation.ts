@@ -1,12 +1,11 @@
-import { ChatMessage } from "@/completion/typing";
+import { ChatMessage } from '@/typing';
 import { v4 as uuid } from 'uuid';
 
 let convo: Conversation | null = null;
 
 export class Conversation {
-  
   messages: ChatMessage[];
-  
+
   constructor(messages: ChatMessage[] = []) {
     this.messages = messages;
   }
@@ -25,21 +24,19 @@ export class Conversation {
     }
     // Find the last divider and return all messages after it
     let msgs: ChatMessage[] = [];
-    const dividerIndex = this.messages.map(msg => msg.role).lastIndexOf('divider');
-    if (dividerIndex === -1)
-      msgs = this.messages;
-    else
-      msgs = this.messages.slice(dividerIndex + 1);
-    
+    const dividerIndex = this.messages.map((msg) => msg.role).lastIndexOf('divider');
+    if (dividerIndex === -1) msgs = this.messages;
+    else msgs = this.messages.slice(dividerIndex + 1);
+
     if (msgs.length === 0) {
       return msgs;
     }
-    
+
     return msgs;
   }
 
   getMessageByID(id: string) {
-    return this.messages.find(msg => msg.id === id);
+    return this.messages.find((msg) => msg.id === id);
   }
 
   addMessage(message: ChatMessage) {
@@ -51,7 +48,7 @@ export class Conversation {
   }
 
   deletePairMessage(msg: ChatMessage): [ChatMessage, ChatMessage] | undefined {
-    const index = this.messages.findIndex(m => m.id === msg.id);
+    const index = this.messages.findIndex((m) => m.id === msg.id);
     if (index !== -1) {
       const deleted = this.messages[index];
       const deleted2 = this.messages[index + 1];
@@ -61,7 +58,7 @@ export class Conversation {
   }
 
   deleteMessage(msg: ChatMessage): [ChatMessage, number] | [] {
-    const index = this.messages.findIndex(m => m.id === msg.id);
+    const index = this.messages.findIndex((m) => m.id === msg.id);
     if (index !== -1) {
       const deleted = this.messages[index];
       this.messages.splice(index, 1);
@@ -71,21 +68,17 @@ export class Conversation {
     }
   }
 
-  replaceToLastMessage({id, content, prompt}: {id?: string, content?: string, prompt?: string}, streaming: boolean = false) {
-    if (!this.lastMessage)
-      return;
-    if (content)
-      this.lastMessage.content = content;
-    if (prompt)
-      this.lastMessage.prompt = prompt;
-    if (id)
-      this.lastMessage.id = id;
+  replaceToLastMessage({ id, content, prompt }: { id?: string; content?: string; prompt?: string }, streaming: boolean = false) {
+    if (!this.lastMessage) return;
+    if (content) this.lastMessage.content = content;
+    // if (prompt)
+    //   this.lastMessage.prompt = prompt;
+    if (id) this.lastMessage.id = id;
     this.lastMessage.streaming = streaming;
   }
 
   interruptLastMessage() {
-    if (!this.lastMessage)
-      return;
+    if (!this.lastMessage) return;
     this.lastMessage.streaming = false;
   }
 
@@ -98,15 +91,14 @@ export class Conversation {
     if (this.messages.length <= 1) {
       return true;
     }
-    if (this.messages[this.messages.length-1].role === 'divider') {
+    if (this.messages[this.messages.length - 1].role === 'divider') {
       return true;
     }
-    if (this.messages[this.messages.length-2].role === 'divider') {
+    if (this.messages[this.messages.length - 2].role === 'divider') {
       return true;
     }
     return false;
   }
-
 }
 
 export function getCurrentConversation(): Conversation {

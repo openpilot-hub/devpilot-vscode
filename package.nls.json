@@ -1,17 +1,24 @@
 {
   "devpilot.startup": "New DevPilot Chat",
   "devpilot.explainCode.title": "Explain This",
-  "devpilot.fixBug.title": "Fix This",
-  "devpilot.generateComment.title": "Generate Comments",
+  "devpilot.fixCode.title": "Fix This",
+  "devpilot.commentCode.title": "Generate Comments",
   "devpilot.generateTest.title": "Generate Tests",
   "devpilot.checkPerformance.title": "Performance Check",
   "devpilot.codeReview.title": "Review Code",
+  "devpilot.generateCommit.title": "Generate commit message",
+  "devpilot.abortCommit.title": "Generating...",
   "devpilot.language.description": "The language preference for DevPilot",
   "devpilot.autoCompletion.description": "Enable auto completion",
   "devpilot.methodShortcut.description": "Enable method shortcut",
+  "devpilot.networkChecking.description": "Enable network checking",
   "devpilot.proxy.description": "The proxy to use for DevPilot",
-  "devpilot.provider.description": "The provider to use for DevPilot, ZA is the default provider", 
+  "devpilot.provider.description": "The provider to use for DevPilot, ZA is the default provider",
   "devpilot.provider.proxy": "Use a proxy for the provider if necessary",
   "devpilot.provider.openaiAPIKey": "Provide your OpenAI API Key if you are using OpenAI as the provider",
-  "devpilot.provider.model": "The model you want to use (gpt-3.5-turbo, gpt-4, gpt-4o, etc.)"
+  "devpilot.provider.model": "The model you want to use (gpt-3.5-turbo, gpt-4, gpt-4o, etc.)",
+  "devpilot.logout": "Logout",
+  "devpilot.feedback": "Feedback",
+  "devpilot.setting": "Setting",
+  "devpilot.personalCenter": "User profile"
 }

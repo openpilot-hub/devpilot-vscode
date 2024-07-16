@@ -6,9 +6,9 @@ import { logger } from '@/utils/logger';
 
 const OP_ITEMS = [
   { label: l10n.t('operation.explain_s'), value: 'devpilot.explainCode' },
-  { label: l10n.t('operation.fix_s'), value: 'devpilot.fixBug' },
+  { label: l10n.t('operation.fix_s'), value: 'devpilot.fixCode' },
   { label: l10n.t('operation.comment_s'), value: 'devpilot.commentCode' },
-  { label: l10n.t('operation.summary_s'), value: 'devpilot.summaryCode' },
+  { label: l10n.t('operation.summary_s'), value: 'devpilot.commentMethod' },
   { label: l10n.t('operation.test_s'), value: 'devpilot.generateTest' },
 ];
 

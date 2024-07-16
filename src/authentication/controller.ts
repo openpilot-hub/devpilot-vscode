@@ -4,6 +4,8 @@ import { ILoginProvider } from './types';
 import LoginProvider from './provider';
 import eventsProvider from '@/providers/EventsProvider';
 import l10n from '@/l10n';
+import { checkingNetwork, stopCheckingNetwork } from '@/utils/network';
+import { AUTH_ON } from '@/env';
 
 export default class LoginController extends Disposable {
   static instance: LoginController;
@@ -49,7 +51,7 @@ export default class LoginController extends Disposable {
       this.context.globalState.update('USER_NAME', userInfo.username || userInfo.nickname);
       this.context.globalState.update('USER_INFO', JSON.stringify(userInfo));
       this.context.globalState.setKeysForSync(this.context.globalState.keys());
-      vscode.commands.executeCommand('setContext', 'devpilot.login', 1);
+      this.updateLoginStatus({ inform: true });
       eventsProvider.onLogin.fire(1);
     });
   };
@@ -60,6 +62,7 @@ export default class LoginController extends Disposable {
     });
     vscode.commands.executeCommand('setContext', 'devpilot.login', 0);
     eventsProvider.onLogin.fire(0);
+    stopCheckingNetwork();
     logger.info('Logout');
   };
 
@@ -73,9 +76,10 @@ export default class LoginController extends Disposable {
   }
 
   updateLoginStatus({ inform }: { inform?: boolean }) {
-    const token = this.context.globalState.get<string>('TOKEN');
-    if (token) {
+    const { token, authType } = this.getLoginInfo();
+    if (token || !AUTH_ON) {
       vscode.commands.executeCommand('setContext', 'devpilot.login', 1);
+      checkingNetwork(authType!);
     } else {
       vscode.commands.executeCommand('setContext', 'devpilot.login', 0);
       if (inform) {

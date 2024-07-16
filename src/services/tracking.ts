@@ -1,4 +1,5 @@
 import request, { ZAPI } from '@/utils/request';
+import { TELEMETRY_ON } from '@/env';
 
 // 对话 赞（true）、踩 (false)
 export function trackLiking(messageId: string, like: boolean) {
@@ -14,16 +15,20 @@ export function trackCodeAction(
   content: string,
   language: string
 ) {
-  request().put(ZAPI('tracking', `/conversation-messages/${messageId}/accepted`), {
-    acceptedLines: content,
-    language,
-    actionType,
-  });
+  if (TELEMETRY_ON) {
+    request().put(ZAPI('tracking', `/conversation-messages/${messageId}/accepted`), {
+      acceptedLines: content,
+      language,
+      actionType,
+    });
+  }
 }
 
 // 补全接受 主要是TAB的事件
 export function trackCompletionAcceptance(messageId: string, language: string) {
-  request().put(ZAPI('tracking', `/completion-messages/${messageId}`), {
-    language,
-  });
+  if (TELEMETRY_ON) {
+    request().put(ZAPI('tracking', `/completion-messages/${messageId}`), {
+      language,
+    });
+  }
 }

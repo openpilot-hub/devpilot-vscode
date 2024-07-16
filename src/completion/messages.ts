@@ -1,41 +1,41 @@
 import { v4 as uuid } from 'uuid';
-import { ChatMessage } from "./typing";
+import { ChatMessage } from '../typing';
 
-export const createSystemMessage = (content: string, time?: number): ChatMessage => {
+export const createSystemMessage = (msg: Partial<ChatMessage>): ChatMessage => {
   return {
     id: uuid(),
     status: 'ok',
-    content: '',
-    prompt: content,
+    content: msg.content ?? '',
     role: 'system',
     username: '',
     avatar: '',
     streaming: false,
-    time: time ?? Date.now()
+    time: msg.time ?? Date.now(),
   };
-}
+};
 
 export const createUserMessage = (msg: Partial<ChatMessage>): ChatMessage => {
   return {
     id: uuid(),
     status: 'ok',
     content: msg.content ?? '',
-    prompt: msg.prompt ?? '',
+    // prompt: msg.prompt ?? '',
     codeRef: msg.codeRef ?? undefined,
     role: 'user',
     username: 'User',
     avatar: '',
     streaming: false,
     time: msg.time ?? Date.now(),
+    commandType: msg.commandType,
   };
-}
+};
 
 export const createAssistantMessage = (msg: Partial<ChatMessage>): ChatMessage => {
   return {
     id: uuid(),
     status: 'ok',
     content: msg.content ?? '',
-    prompt: msg.prompt ?? '',
+    // prompt: msg.prompt ?? '',
     codeRef: msg.codeRef ?? undefined,
     role: 'assistant',
     username: 'DevPilot',
@@ -43,7 +43,7 @@ export const createAssistantMessage = (msg: Partial<ChatMessage>): ChatMessage =
     streaming: false,
     time: msg.time ?? Date.now(),
   };
-}
+};
 
 export const createDividerMessage = (): ChatMessage => {
   return {
@@ -54,6 +54,6 @@ export const createDividerMessage = (): ChatMessage => {
     username: '',
     avatar: '',
     streaming: false,
-    time: Date.now()
+    time: Date.now(),
   };
-}
+};

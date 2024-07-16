@@ -1,33 +1,42 @@
 import { logger } from '@/utils/logger';
 import { readJSONStream, StreamHandler } from '@/utils/stream';
-import { ChatMessage, LLMChatHandler, LLMProvider, LLMProviderOption, ProviderType } from '../../typing';
+import { ChatMessage, LLMChatHandler, LLMProvider, DevPilotFunctionality, ProviderType } from '../../../typing';
 import request, { ZAPI } from '@/utils/request';
+import { configuration } from '@/configuration';
 
 type OpenAIRole = 'user' | 'assistant' | 'system';
 
 interface OpenAIMessage {
   content: string;
+  commandType?: DevPilotFunctionality;
   role: OpenAIRole;
+  promptData?: {
+    selectedCode: string;
+    answerLanguage: string; // en_us | cn_zh 大小写无关
+  };
 }
 
 function convertToOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
-  const validRoles: OpenAIRole[] = ['user', 'assistant', 'system'];
+  const validRoles: OpenAIRole[] = ['user', 'assistant'];
+  const answerLanguage = configuration().llmLocale() === 'Chinese' ? 'zh-CN' : 'en-US';
   return messages
     .filter((msg) => validRoles.includes(msg.role as OpenAIRole))
-    .filter((msg) => (msg.prompt || '').trim() !== '')
-    .map(
-      (msg) =>
-        ({
-          content: msg.prompt || msg.content,
-          role: msg.role,
-        } as OpenAIMessage)
-    );
+    .map((msg) => {
+      return {
+        commandType: msg.commandType,
+        content: msg.content,
+        role: msg.role,
+        promptData: msg.codeRef && {
+          selectedCode: msg.codeRef.sourceCode,
+          answerLanguage,
+        },
+      } as OpenAIMessage;
+    });
 }
 
 export default class ZAProvider implements LLMProvider {
   public name: ProviderType = 'ZA';
-  public model: string = 'azure/gpt-3.5-turbo';
-  private stream: boolean = true;
+  // private stream: boolean = true;
 
   async chat(messages: ChatMessage[], extraOptions?: { repo: string }): Promise<LLMChatHandler> {
     try {
@@ -39,20 +48,20 @@ export default class ZAProvider implements LLMProvider {
       const response = await req.post(
         apiEndpoint,
         {
-          messages: llmMsgs,
-          model: repo ? undefined : this.model,
-          temperature: 0.7,
+          version: 'V1',
           stream: true,
+          messages: llmMsgs,
         },
         {
-          ...(this.stream ? { responseType: 'stream' } : {}),
+          // ...(this.stream ? { responseType: 'stream' } : {}),
+          responseType: 'stream',
           timeout: 120000,
         }
       );
 
-      if (!this.stream) {
-        return response.data.choices[0].message.content;
-      }
+      // if (!this.stream) {
+      //   return response.data.choices[0].message.content;
+      // }
 
       let textCollected = '';
       let onTextCallback: (text: string, options: { id: string }) => void;
@@ -97,6 +106,7 @@ export default class ZAProvider implements LLMProvider {
           onInterruptedCallback?.();
         },
         onDone: () => {
+          logger.info('textCollected =>', textCollected);
           streamDoneResolve(textCollected);
         },
       };
