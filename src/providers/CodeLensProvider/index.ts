@@ -1,6 +1,6 @@
 import l10n from '@/l10n';
 import vscode, { ExtensionContext } from 'vscode';
-import { getAllFunctionsRange, getAllMethodsRange, SyntaxService } from './syntax';
+import { getAllFunctionsRange, SyntaxService } from './syntax';
 import { createFullLineRange, selectRange } from '@/utils/vscode-extend';
 import { logger } from '@/utils/logger';
 
@@ -25,7 +25,10 @@ export default class CodeLensProvider implements vscode.CodeLensProvider {
 
   initialize() {
     this._context.subscriptions.push(
-      vscode.languages.registerCodeLensProvider({ pattern: '**/*.{ts,js,tsx,jsx,java,py,go,rust,css,dart,html,kotlin,scala,swift}' }, this)
+      vscode.languages.registerCodeLensProvider(
+        { pattern: '**/*.{ts,js,tsx,jsx,java,py,go,rust,css,dart,html,kotlin,scala,swift,cpp,vue}' },
+        this
+      )
     );
     this._context.subscriptions.push(
       vscode.commands.registerCommand(this._commandName, (range, command) => {
@@ -45,7 +48,7 @@ export default class CodeLensProvider implements vscode.CodeLensProvider {
       logger.debug('Syntax tree not found');
       return;
     }
-    const lenses = [...getAllFunctionsRange(ast), ...getAllMethodsRange(ast)].flatMap((range) => this.buildCodeLense(range));
+    const lenses = getAllFunctionsRange(ast).flatMap((range) => this.buildCodeLense(range));
     logger.debug('CodeLensProvider lenses', lenses);
     return lenses;
   }

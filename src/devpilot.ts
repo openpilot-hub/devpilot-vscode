@@ -1,8 +1,8 @@
-import { join } from 'path';
-import * as vscode from 'vscode';
-import * as fs from 'fs';
+import { join, basename } from 'path';
+import vscode from 'vscode';
+import fs from 'fs';
 import { getCurrentConversation, startNewConversation } from '@/conversation/conversation';
-import { createAssistantMessage, createDividerMessage, createSystemMessage } from '@/completion/messages';
+import { createAssistantMessage, createDividerMessage } from '@/completion/messages';
 import { buildDevpilotMessages, messageWithCodeblock } from '@/completion/promptBuilder';
 import { Configuration, configuration } from './configuration';
 import { createUserMessage } from './completion/messages';
@@ -19,17 +19,24 @@ import LoginController from './authentication/controller';
 import { OFFICIAL_SITE } from '@/env';
 import { generateCommitMsg, NO_STAGED_FILES } from './services/chat';
 import { notifyLogin } from './services/login';
+import { sleep } from './utils';
 
 export let globalDevpilot: Devpilot | undefined = undefined;
 
-const getCodeRef = (editor: vscode.TextEditor): CodeReference => {
+const getCodeRef = (editor: vscode.TextEditor, codeRef?: Partial<CodeReference>): CodeReference => {
   const sourceCode = editor.document.getText(editor.selection);
   return {
-    fileUrl: editor.document.uri.toString(),
-    fileName: editor.document.uri.path.split('/').pop() || '',
+    languageId: editor.document.languageId,
+    fileUrl: editor.document.uri.fsPath,
+    fileName: basename(editor.document.uri.fsPath),
+    // document: editor.document.getText(),
     sourceCode,
-    selectedStartLine: editor.selection.start.line + 1,
-    selectedEndLine: editor.selection.end.line + 1,
+    selectedStartLine: editor.selection.start.line,
+    selectedStartColumn: editor.selection.start.character,
+    selectedEndLine: editor.selection.end.line,
+    selectedEndColumn: editor.selection.end.character,
+    visible: true,
+    ...codeRef,
   };
 };
 
@@ -126,9 +133,13 @@ export default class Devpilot implements vscode.WebviewViewProvider {
 
   registerCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(
-      vscode.commands.registerCommand('devpilot.startup', async () => {
-        await this.reveal();
-        this.startNewConversatin();
+      vscode.commands.registerCommand('devpilot.openChat', async () => {
+        this.starConversationOf(DevPilotFunctionality.OpenChat);
+      })
+    );
+    context.subscriptions.push(
+      vscode.commands.registerCommand('devpilot.referenceCode', async () => {
+        this.starConversationOf(DevPilotFunctionality.ReferenceCode);
       })
     );
     context.subscriptions.push(
@@ -218,9 +229,8 @@ export default class Devpilot implements vscode.WebviewViewProvider {
   async reveal() {
     if (!this.view) {
       await vscode.commands.executeCommand('devpilot-chat.focus');
-      return;
-    }
-    if (!this.view.visible) {
+      await sleep(500); // ensure to be fully initialized
+    } else if (!this.view.visible) {
       this.view.show(true);
     }
   }
@@ -240,7 +250,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     this.streamingBotAnswerIntoConversation();
   }
 
-  async starConversationOf(functionality: DevPilotFunctionality) {
+  async starConversationOf(functionality: DevPilotFunctionality, msg?: ChatMessage) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       vscode.window.showErrorMessage('No active editor found');
@@ -248,22 +258,32 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     }
 
     const sourceCode = editor.document.getText(editor.selection);
+    if (functionality === DevPilotFunctionality.OpenChat) {
+      await this.reveal();
+      if (sourceCode) {
+        this.postPluginMessage({ command: PluginCommand.ReferenceCode, payload: getCodeRef(editor) });
+      }
+      return;
+    }
 
     if (!sourceCode) {
-      vscode.window.showErrorMessage('No code selected');
+      vscode.window.showErrorMessage(l10n.t('msg.empty_selection'));
       return;
     }
 
     await this.reveal();
 
-    const initMessages = buildDevpilotMessages({
-      codeRef: getCodeRef(editor),
-      functionality,
-      language: getLanguageForMarkdown(editor.document.languageId),
-      llmLocale: this.config.llmLocale(),
-    });
-
-    this.startNewConversatinWithChatMessage(initMessages);
+    if (functionality === DevPilotFunctionality.ReferenceCode) {
+      this.postPluginMessage({ command: PluginCommand.ReferenceCode, payload: getCodeRef(editor) }); // the same to OpenChat
+    } else {
+      const initMessages = buildDevpilotMessages({
+        codeRef: msg?.codeRef || getCodeRef(editor),
+        functionality,
+        language: getLanguageForMarkdown(msg?.codeRef?.languageId || editor.document.languageId),
+        llmLocale: this.config.llmLocale(),
+      });
+      this.startNewConversatinWithChatMessage(initMessages);
+    }
   }
 
   public async appendChatMessage(msg: ChatMessage) {
@@ -325,13 +345,11 @@ export default class Devpilot implements vscode.WebviewViewProvider {
 
   renderConversation() {
     const convo = getCurrentConversation();
-
     let renderMessages = convo.messages.map((msg) => ({
       ...msg,
       content: msg.content.startsWith('[C]') ? msg.content.replace('[C]', '') : msg.content,
     }));
-
-    this.view?.webview.postMessage({
+    this.postPluginMessage({
       command: PluginCommand.RenderChatConversation,
       payload: renderMessages,
     });
@@ -355,7 +373,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
       // convo.lastMessage.prompt = convo.lastMessage.content.replace('@repo', '');
     }
 
-    convo.addMessage(createSystemMessage({ content: '...' }));
+    convo.addMessage(createAssistantMessage({ content: '...' }));
     this.renderConversation();
 
     let answer;
@@ -370,7 +388,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
         }
       }
 
-      const llmMsgs = msgs.filter((msg) => !msg.content.startsWith('[C]'));
+      const llmMsgs = msgs.filter((msg) => !msg.content.startsWith('[C]') && msg.content !== '...');
 
       const handler = await this.config.llm().chat(llmMsgs, isRAG ? { repo: this.repoName } : undefined);
 
@@ -429,18 +447,29 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     }
     if (command === PluginCommand.AppendToConversation) {
       if (msg.role === 'user') {
-        // if selected code is not empty, add it to the conversation
-        const editor = vscode.window.activeTextEditor;
-        if (editor && editor.document.getText(editor.selection)) {
-          msg.content = messageWithCodeblock(
-            msg.content,
-            editor.document.getText(editor.selection),
-            getLanguageForMarkdown(editor.document.languageId)
+        const chatMsg: ChatMessage = msg;
+        if (chatMsg.codeRef) {
+          chatMsg.codeRef.visible = false;
+          chatMsg.content = messageWithCodeblock(
+            chatMsg.content,
+            chatMsg.codeRef.sourceCode,
+            getLanguageForMarkdown(chatMsg.codeRef.languageId)
           );
+        } else {
+          // if selected code is not empty, add it to the conversation
+          const editor = vscode.window.activeTextEditor;
+          if (editor && editor.document.getText(editor.selection)) {
+            chatMsg.codeRef = getCodeRef(editor, { visible: false });
+            chatMsg.content = messageWithCodeblock(
+              chatMsg.content,
+              editor.document.getText(editor.selection),
+              getLanguageForMarkdown(editor.document.languageId)
+            );
+          }
         }
         const convo = getCurrentConversation();
-        msg.commandType = 'PURE_CHAT';
-        convo.addMessage(msg);
+        chatMsg.commandType = DevPilotFunctionality.PureChat;
+        convo.addMessage(chatMsg);
         this.renderConversation();
         await this.streamingBotAnswerIntoConversation();
       }
@@ -459,17 +488,25 @@ export default class Devpilot implements vscode.WebviewViewProvider {
       return;
     }
     if (command === PluginCommand.ClearChatHistory) {
-      this.clearChatHistory();
+      this.startNewConversatin();
       return;
     }
     if (command === PluginCommand.GotoSelectedCode) {
-      const editor = vscode.window.activeTextEditor;
+      let editor = vscode.window.activeTextEditor;
+      const codeRef: CodeReference = msg;
+      if (editor?.document.uri.fsPath !== codeRef.fileUrl) {
+        let doc = vscode.workspace.textDocuments.find((item) => item.uri.fsPath === codeRef.fileUrl);
+        if (!doc && fs.existsSync(codeRef.fileUrl)) {
+          doc = await vscode.workspace.openTextDocument(codeRef.fileUrl);
+        }
+        if (doc) {
+          editor = await vscode.window.showTextDocument(doc);
+        }
+      }
       if (editor) {
-        const startLine = msg.selectedStartLine - 1;
-        const startCharacter = 0;
-        const endLine = msg.selectedEndLine;
-        const endCharacter = editor.document.lineAt(endLine).text.length;
-        const startPosition = new vscode.Position(startLine, startCharacter);
+        const endLine = codeRef.selectedEndLine;
+        const endCharacter = codeRef.selectedEndColumn || editor.document.lineAt(endLine).text.length;
+        const startPosition = new vscode.Position(codeRef.selectedStartLine, codeRef.selectedStartColumn || 0);
         const endPosition = new vscode.Position(endLine, endCharacter);
         const selection = new vscode.Selection(startPosition, endPosition);
         editor.selection = selection;
@@ -529,23 +566,23 @@ export default class Devpilot implements vscode.WebviewViewProvider {
       return;
     }
     if (command === PluginCommand.ExplainCode) {
-      this.starConversationOf(DevPilotFunctionality.ExplainCode);
+      this.starConversationOf(DevPilotFunctionality.ExplainCode, msg);
       return;
     }
     if (command === PluginCommand.FixCode) {
-      this.starConversationOf(DevPilotFunctionality.FixCode);
+      this.starConversationOf(DevPilotFunctionality.FixCode, msg);
       return;
     }
     if (command === PluginCommand.CommentCode) {
-      this.starConversationOf(DevPilotFunctionality.CommentCode);
+      this.starConversationOf(DevPilotFunctionality.CommentCode, msg);
       return;
     }
     if (command === PluginCommand.TestCode) {
-      this.starConversationOf(DevPilotFunctionality.GenerateTest);
+      this.starConversationOf(DevPilotFunctionality.GenerateTest, msg);
       return;
     }
     if (command === PluginCommand.CheckCodePerformance) {
-      this.starConversationOf(DevPilotFunctionality.CheckPerformance);
+      this.starConversationOf(DevPilotFunctionality.CheckPerformance, msg);
       return;
     }
   }

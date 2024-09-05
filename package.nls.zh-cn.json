@@ -1,5 +1,6 @@
 {
-  "devpilot.startup": "新建DevPilot聊天",
+  "devpilot.openChat": "打开DevPilot会话",
+  "devpilot.referenceCode": "引用代码块",
   "devpilot.explainCode.title": "解释代码",
   "devpilot.fixCode.title": "修复代码",
   "devpilot.CommentCode.title": "生成注释",

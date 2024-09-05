@@ -25,6 +25,12 @@ export enum DevPilotFunctionality {
    */
   CommentMethod = 'COMMENT_METHOD',
   GenerateCommit = 'GENERATE_COMMIT',
+  /**
+   * open chat window
+   */
+  OpenChat = 'OPEN_CAT',
+  ReferenceCode = 'REFERENCE_CODE',
+  PureChat = 'PURE_CHAT',
 }
 
 export enum PluginCommand {
@@ -51,6 +57,7 @@ export enum PluginCommand {
   OpenFile = 'OpenFile',
   CheckCodePerformance = 'CheckCodePerformance',
   PresentCodeEmbeddedState = 'PresentCodeEmbeddedState',
+  ReferenceCode = 'ReferenceCode',
 }
 
 export type ProviderType = 'OpenAI' | 'Azure' | 'ZA';
@@ -61,11 +68,19 @@ export enum Locale {
 }
 
 export interface CodeReference {
+  languageId: string;
   fileUrl: string;
   fileName: string;
   sourceCode: string;
+  // document: string;
   selectedStartLine: number;
+  selectedStartColumn: number;
   selectedEndLine: number;
+  selectedEndColumn: number;
+  /**
+   * if to show in chat window
+   */
+  visible: boolean;
 }
 
 export interface ChatMessage {

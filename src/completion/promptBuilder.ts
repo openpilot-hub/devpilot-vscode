@@ -21,6 +21,9 @@ export function messageByFunctionality(functionality: DevPilotFunctionality): st
     REVIEW_CODE: l10n.t('operation.review'),
     COMMENT_METHOD: l10n.t('operation.summary'),
     GENERATE_COMMIT: '',
+    OPEN_CAT: '',
+    REFERENCE_CODE: '',
+    PURE_CHAT: '',
   }[functionality];
 }
 

@@ -1,5 +1,6 @@
 {
-  "devpilot.startup": "New DevPilot Chat",
+  "devpilot.openChat": "Open DevPilot Chat",
+  "devpilot.referenceCode": "Reference Code in Chat",
   "devpilot.explainCode.title": "Explain This",
   "devpilot.fixCode.title": "Fix This",
   "devpilot.commentCode.title": "Generate Comments",

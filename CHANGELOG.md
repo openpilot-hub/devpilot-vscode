@@ -1,6 +1,22 @@
 # Change Log
 
-## 1.6.0 (20240715)
+## 1.6.4 (20240905)
+
+-- feat: Lower the frequency of triggering inline completion to avoid annoying user.
+-- feat: Remove checkPerformance & codeReview from context menu.
+-- feat: Add Reference Code functionality.
+
+## 1.6.3 (20240731)
+
+-- fix: Chat context loss.
+-- feat: Base64-encoding of request param.
+-- fix: Method shortcut not working for some languages.
+
+## 1.6.2 (20240731)
+
+-- fix: Fix error caused by ArrowUp and ArrowDown in the chat box.
+
+## 1.6.1 (20240715)
 
 - feat: Support for generating commit message
 - feat: Add more entries. e.g. feedback，user profile，logout ... enjoying your exploring!
