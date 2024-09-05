@@ -11,3 +11,7 @@ export function getConfiguration<T>(key: string, fallback?: any) {
   const ret = config.get<T>(key) ?? fallback;
   return ret;
 }
+
+export function toBase64(text: string) {
+  return Buffer.from(text).toString('base64');
+}

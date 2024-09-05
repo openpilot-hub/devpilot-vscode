@@ -22,4 +22,13 @@ export const OFFICIAL_SITE = 'https://devpilot.zhongan.com';
  * whether to check login
  */
 export const AUTH_ON: boolean = true;
+
+/**
+ * whether to upload some telemetry data
+ */
 export const TELEMETRY_ON: boolean = true;
+
+/**
+ * whether to base64-encode params of request
+ */
+export const PARAM_BASE64_ON: boolean = true;

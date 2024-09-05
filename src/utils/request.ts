@@ -58,7 +58,7 @@ export default function request(options?: { timeout: number; repo?: string }) {
     }
 
     config.headers.set('X-B3-Language', configuration().llmLocale() === 'Chinese' ? 'zh-CN' : 'en-US');
-    config.headers.setContentType('application/json');
+    config.headers.setContentType('application/json; charset=utf-8');
 
     return config;
   });

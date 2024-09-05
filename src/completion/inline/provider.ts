@@ -28,7 +28,7 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
   initialize() {
     this._context.subscriptions.push(vscode.languages.registerInlineCompletionItemProvider({ pattern: '**' }, this));
     this._context.subscriptions.push(
-      vscode.commands.registerCommand('devpilot.accept.InlineCompletion', (e) => {
+      vscode.commands.registerCommand('devpilot.inline.completion.accept', (e) => {
         if (this.lastCompletionItem) {
           logger.debug('=== Completion item accepted');
           this.lockMilliseconds();
@@ -54,7 +54,7 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
 
     this._lastTriggerId++;
     const triggerId = this._lastTriggerId;
-    await sleep(500);
+    await sleep(1000);
 
     if (triggerId !== this._lastTriggerId) {
       // Cancel this trigger if there is a new trigger
@@ -70,11 +70,21 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
     const autoComplete = config.get<boolean>('autoCompletion');
     if (!autoComplete) return;
 
+    if (context.triggerKind === 1) {
+      const lineText = document.lineAt(position.line).text;
+      const canTrigger = /\{|\s|\n|\r/.test(lineText[position.character - 1]);
+      if (!canTrigger) return;
+    }
+
     logger.debug('=== provideInlineCompletionItems executed!');
 
     this._cancelToken?.abort();
     const abortController = new AbortController();
     this._cancelToken = abortController;
+
+    token.onCancellationRequested(() => {
+      this._cancelToken?.abort();
+    });
 
     const workspace = vscode.workspace.workspaceFolders?.[0];
     const workspaceRoot = workspace?.uri.path;
@@ -115,7 +125,7 @@ export default class InlineCompletionProvider implements vscode.InlineCompletion
       new vscode.Range(position, position.translate(0, textToInsert.length)),
       {
         title: 'By DevPilot',
-        command: 'devpilot.accept.InlineCompletion',
+        command: 'devpilot.inline.completion.accept',
       }
     );
 

@@ -3,6 +3,8 @@ import { readJSONStream, StreamHandler } from '@/utils/stream';
 import { ChatMessage, LLMChatHandler, LLMProvider, DevPilotFunctionality, ProviderType } from '../../../typing';
 import request, { ZAPI } from '@/utils/request';
 import { configuration } from '@/configuration';
+import { PARAM_BASE64_ON } from '@/env';
+import { toBase64 } from '@/utils';
 
 type OpenAIRole = 'user' | 'assistant' | 'system';
 
@@ -18,18 +20,37 @@ interface OpenAIMessage {
 
 function convertToOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
   const validRoles: OpenAIRole[] = ['user', 'assistant'];
-  const answerLanguage = configuration().llmLocale() === 'Chinese' ? 'zh-CN' : 'en-US';
   return messages
     .filter((msg) => validRoles.includes(msg.role as OpenAIRole))
     .map((msg) => {
+      const codeRef = msg.codeRef;
+      const promptData: Record<string, any> | undefined =
+        msg.role === 'user'
+          ? {
+              selectedCode: codeRef?.sourceCode,
+              answerLanguage: configuration().llmLocale() === 'Chinese' ? 'zh_CN' : 'en_US',
+            }
+          : undefined;
+      if (PARAM_BASE64_ON) {
+        if (promptData) {
+          Object.keys(promptData).forEach((key) => {
+            if (typeof promptData[key] === 'string') {
+              promptData[key] = toBase64(promptData[key]);
+            }
+          });
+        }
+        return {
+          commandType: msg.commandType,
+          content: toBase64(msg.content),
+          role: msg.role,
+          promptData,
+        } as OpenAIMessage;
+      }
       return {
         commandType: msg.commandType,
         content: msg.content,
         role: msg.role,
-        promptData: msg.codeRef && {
-          selectedCode: msg.codeRef.sourceCode,
-          answerLanguage,
-        },
+        promptData,
       } as OpenAIMessage;
     });
 }
@@ -48,9 +69,10 @@ export default class ZAProvider implements LLMProvider {
       const response = await req.post(
         apiEndpoint,
         {
-          version: 'V1',
+          version: 'V240801',
           stream: true,
           messages: llmMsgs,
+          encoding: PARAM_BASE64_ON ? 'base64' : undefined,
         },
         {
           // ...(this.stream ? { responseType: 'stream' } : {}),
@@ -89,7 +111,7 @@ export default class ZAProvider implements LLMProvider {
       streamHandler = {
         onProgress: (data: any) => {
           if (data.choices) {
-            const text = data.choices[0].delta.content ?? '';
+            const text = data.choices[0]?.delta.content ?? '';
             textCollected += text;
             onTextCallback?.(textCollected, { id: data.id });
           } else if (data.rag) {
