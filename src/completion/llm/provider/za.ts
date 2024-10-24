@@ -1,89 +1,101 @@
 import { logger } from '@/utils/logger';
 import { readJSONStream, StreamHandler } from '@/utils/stream';
-import { ChatMessage, LLMChatHandler, LLMProvider, DevPilotFunctionality, ProviderType } from '../../../typing';
+import { ChatMessage, LLMChatHandler, LLMProvider, ProviderType } from '../../../typing';
 import request, { ZAPI } from '@/utils/request';
 import { configuration } from '@/configuration';
 import { PARAM_BASE64_ON } from '@/env';
-import { toBase64 } from '@/utils';
+import { IChatParam, IMessageData } from '@/services/types';
+import { encodeRequestBody } from '@/utils/encode';
+import { wrapCodeRefInCodeblock } from '@/utils';
 
 type OpenAIRole = 'user' | 'assistant' | 'system';
 
-interface OpenAIMessage {
-  content: string;
-  commandType?: DevPilotFunctionality;
-  role: OpenAIRole;
-  promptData?: {
-    selectedCode: string;
-    answerLanguage: string; // en_us | cn_zh 大小写无关
-  };
-}
-
-function convertToOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
+function convertToOpenAIMessages(messages: ChatMessage[]): IMessageData[] {
   const validRoles: OpenAIRole[] = ['user', 'assistant'];
-  return messages
+  const clonedMessages = messages
     .filter((msg) => validRoles.includes(msg.role as OpenAIRole))
-    .map((msg) => {
-      const codeRef = msg.codeRef;
-      const promptData: Record<string, any> | undefined =
-        msg.role === 'user'
-          ? {
-              selectedCode: codeRef?.sourceCode,
-              answerLanguage: configuration().llmLocale() === 'Chinese' ? 'zh_CN' : 'en_US',
-            }
-          : undefined;
-      if (PARAM_BASE64_ON) {
-        if (promptData) {
-          Object.keys(promptData).forEach((key) => {
-            if (typeof promptData[key] === 'string') {
-              promptData[key] = toBase64(promptData[key]);
-            }
-          });
-        }
-        return {
-          commandType: msg.commandType,
-          content: toBase64(msg.content),
-          role: msg.role,
-          promptData,
-        } as OpenAIMessage;
-      }
-      return {
-        commandType: msg.commandType,
-        content: msg.content,
-        role: msg.role,
-        promptData,
-      } as OpenAIMessage;
+    .map((item) => {
+      return { ...item };
     });
+
+  clonedMessages.forEach((item, index) => {
+    if (item.recall) {
+      if (index > 0) {
+        clonedMessages[index - 1].recall = item.recall;
+      }
+      item.recall = undefined;
+    }
+  });
+
+  const answerLanguage = configuration().llmLocale() === 'Chinese' ? 'zh_CN' : 'en_US';
+  return clonedMessages.map((msg) => {
+    const { codeRef, recall } = msg;
+    const localRefs = recall?.localRefs;
+    const promptData: IMessageData['promptData'] | undefined =
+      msg.role === 'user'
+        ? {
+            selectedCode: wrapCodeRefInCodeblock(codeRef),
+            answerLanguage,
+            language: 'javascript',
+            relatedContext: localRefs
+              ?.map((ref, index) => {
+                const codeBlock = wrapCodeRefInCodeblock(ref);
+                const indexStr = `${index + 1}. `;
+                if (ref.packageName) {
+                  return `\n\n${indexStr}module '${ref.packageName}'\n${codeBlock}`;
+                }
+                return `\n\n${indexStr}\n${codeBlock}`;
+              })
+              .join(''),
+          }
+        : undefined;
+
+    logger.info('relatedContext', promptData?.relatedContext);
+
+    return {
+      commandType: msg.commandType,
+      content: msg.content,
+      role: msg.role,
+      promptData,
+    };
+  });
 }
 
 export default class ZAProvider implements LLMProvider {
   public name: ProviderType = 'ZA';
   // private stream: boolean = true;
 
-  async chat(messages: ChatMessage[], extraOptions?: { repo: string }): Promise<LLMChatHandler> {
+  async chat(messages: ChatMessage[], extraOptions?: { repo?: string; signal?: AbortSignal }): Promise<LLMChatHandler> {
     try {
       const llmMsgs = convertToOpenAIMessages(messages);
       const repo = extraOptions?.repo;
-      const apiEndpoint = repo ? ZAPI('rag') : ZAPI('chat');
+      const apiEndpoint = repo ? ZAPI('rag') : ZAPI('chatV2');
       logger.debug('llmMsgs', llmMsgs, 'extraOptions', extraOptions, 'repo', repo, 'apiEndpoint', apiEndpoint);
       const req = request({ timeout: 0, repo });
-      const response = await req.post(
-        apiEndpoint,
-        {
-          version: 'V240801',
-          stream: true,
-          messages: llmMsgs,
-          encoding: PARAM_BASE64_ON ? 'base64' : undefined,
-        },
-        {
-          // ...(this.stream ? { responseType: 'stream' } : {}),
+
+      let param: IChatParam | string = {
+        version: 'V240923',
+        stream: true,
+        messages: llmMsgs,
+      };
+
+      if (PARAM_BASE64_ON) {
+        param = await encodeRequestBody(param);
+      }
+
+      logger.debug('chat param', JSON.stringify(param));
+
+      const response = await req
+        .post(apiEndpoint, param, {
           responseType: 'stream',
           timeout: 120000,
-        }
-      );
-
-      // if (!this.stream) {
-      //   return response.data.choices[0].message.content;
-      // }
+          signal: extraOptions?.signal,
+        })
+        .catch((err) => {
+          if (err.code !== 'ERR_CANCELED') {
+            throw err;
+          }
+        });
 
       let textCollected = '';
       let onTextCallback: (text: string, options: { id: string }) => void;
@@ -133,7 +145,9 @@ export default class ZAProvider implements LLMProvider {
         },
       };
 
-      readJSONStream(response.data, streamHandler);
+      if (response) {
+        readJSONStream(response.data, streamHandler);
+      }
 
       return ctrl;
     } catch (error: any) {

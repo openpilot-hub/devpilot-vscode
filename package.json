@@ -2,7 +2,7 @@
   "name": "devpilot",
   "displayName": "DevPilot",
   "description": "Your AI-Infused Code Copilot",
-  "version": "1.6.4",
+  "version": "1.7.3",
   "publisher": "Zhongan",
   "icon": "assets/logo.png",
   "homepage": "https://devpilot.zhongan.com",
@@ -96,6 +96,11 @@
             "Chinese",
             "English"
           ],
+          "enumItemLabels": [
+            "%devpilot.language.chinese%",
+            "%devpilot.language.english%"
+          ],
+          "default": "Chinese",
           "order": 10
         },
         "devpilot.autoCompletion": {
@@ -105,9 +110,19 @@
           "order": 20
         },
         "devpilot.methodShortcut": {
-          "type": "boolean",
+          "type": "string",
           "description": "%devpilot.methodShortcut.description%",
-          "default": true,
+          "enum": [
+            "hidden",
+            "inline",
+            "group"
+          ],
+          "enumItemLabels": [
+            "%devpilot.methodShortcut.hidden%",
+            "%devpilot.methodShortcut.inline%",
+            "%devpilot.methodShortcut.group%"
+          ],
+          "default": "inline",
           "order": 30
         },
         "devpilot.networkChecking": {
@@ -299,6 +314,7 @@
   "devDependencies": {
     "@estruyf/vscode": "^1.1.0",
     "@types/glob": "^7.2.0",
+    "@types/lodash": "^4.17.7",
     "@types/mocha": "^9.1.1",
     "@types/node": "16.x",
     "@types/react": "^18.0.21",
@@ -322,6 +338,7 @@
     "rimraf": "^3.0.2",
     "style-loader": "^3.3.1",
     "ts-loader": "^9.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^4.7.4",
     "wasm-loader": "^1.3.0",
     "webpack": "^5.74.0",
@@ -331,6 +348,7 @@
   "dependencies": {
     "axios": "^1.6.2",
     "https-proxy-agent": "^7.0.2",
+    "lodash": "^4.17.21",
     "react-markdown": "^9.0.1",
     "react-syntax-highlighter": "^15.5.0",
     "rehype-raw": "^7.0.0",

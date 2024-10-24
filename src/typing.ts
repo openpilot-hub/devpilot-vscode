@@ -1,3 +1,13 @@
+import axios from 'axios';
+declare module 'axios' {
+  export interface AxiosRequestConfig<D = any> {
+    /**
+     * The name of the repository.
+     */
+    repo?: string;
+  }
+}
+
 export enum DevPilotFunctionality {
   /**
    * PluginCommand.ExplainCode
@@ -31,6 +41,7 @@ export enum DevPilotFunctionality {
   OpenChat = 'OPEN_CAT',
   ReferenceCode = 'REFERENCE_CODE',
   PureChat = 'PURE_CHAT',
+  CodePrediction = 'CODE_PREDICTION',
 }
 
 export enum PluginCommand {
@@ -56,7 +67,7 @@ export enum PluginCommand {
   CopyCode = 'CopyCode',
   OpenFile = 'OpenFile',
   CheckCodePerformance = 'CheckCodePerformance',
-  PresentCodeEmbeddedState = 'PresentCodeEmbeddedState',
+  // PresentCodeEmbeddedState = 'PresentCodeEmbeddedState',
   ReferenceCode = 'ReferenceCode',
 }
 
@@ -72,7 +83,14 @@ export interface CodeReference {
   fileUrl: string;
   fileName: string;
   sourceCode: string;
-  // document: string;
+  /**
+   * import package name
+   */
+  packageName?: string;
+  /**
+   * full document text
+   */
+  document?: string;
   selectedStartLine: number;
   selectedStartColumn: number;
   selectedEndLine: number;
@@ -80,8 +98,10 @@ export interface CodeReference {
   /**
    * if to show in chat window
    */
-  visible: boolean;
+  // visible: boolean;
 }
+
+export type MessageRole = 'user' | 'assistant' | 'system' | 'divider' | 'error';
 
 export interface ChatMessage {
   id: string;
@@ -90,7 +110,7 @@ export interface ChatMessage {
    */
   content: string;
   status: 'ok' | 'error';
-  role: 'user' | 'assistant' | 'system' | 'divider' | 'error';
+  role: MessageRole;
   username: string;
   avatar: string;
   time: number;
@@ -100,6 +120,15 @@ export interface ChatMessage {
    */
   streaming: boolean;
   codeRef?: CodeReference;
+  recall?: IRecall;
+}
+
+export interface IRecall {
+  steps: {
+    status: 'loading' | 'done' | 'terminated';
+  }[];
+  remoteRefs?: CodeReference[];
+  localRefs?: CodeReference[];
 }
 
 export interface LLMChatHandler {
@@ -111,7 +140,7 @@ export interface LLMChatHandler {
 
 export interface LLMProvider {
   name: string;
-  chat: (messages: ChatMessage[], extraOptions?: { repo: string }) => Promise<LLMChatHandler>;
+  chat: (messages: ChatMessage[], extraOptions?: { repo?: string; signal?: AbortSignal }) => Promise<LLMChatHandler>;
 }
 
 export interface LLMProviderOption {
