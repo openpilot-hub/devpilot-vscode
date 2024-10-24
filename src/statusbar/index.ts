@@ -15,7 +15,7 @@ function getStatusBarActions(context: ExtensionContext) {
   const token = context.globalState.get('TOKEN');
   const config = vscode.workspace.getConfiguration('devpilot');
   const autoComplete = config.get('autoCompletion') as boolean;
-  const methodQuickOp = config.get('methodShortcut') as boolean;
+  const methodQuickOp = config.get('methodShortcut') !== 'hidden';
 
   const actions: (QuickPickItem & { fn: () => void; visible?: boolean })[] = [
     {
@@ -34,7 +34,7 @@ function getStatusBarActions(context: ExtensionContext) {
       label: l10n.t('methodShortcut.title'),
       iconPath: new ThemeIcon(methodQuickOp ? 'notebook-state-success' : 'empty001'),
       fn() {
-        config.update('methodShortcut', !methodQuickOp, true);
+        config.update('methodShortcut', methodQuickOp ? 'hidden' : 'inline', true);
       },
     },
     {

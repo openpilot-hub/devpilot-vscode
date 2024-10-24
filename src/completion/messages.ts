@@ -40,8 +40,9 @@ export const createAssistantMessage = (msg: Partial<ChatMessage>): ChatMessage =
     role: 'assistant',
     username: 'DevPilot',
     avatar: '',
-    streaming: false,
+    streaming: msg.streaming ?? false,
     time: msg.time ?? Date.now(),
+    recall: msg.recall,
   };
 };
 

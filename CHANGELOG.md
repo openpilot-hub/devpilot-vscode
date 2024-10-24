@@ -1,20 +1,31 @@
 # Change Log
 
+## 1.7.3 (2024/10/23)
+
+- fix: The issue of incomplete context recall in certain grammatical scenario.
+- fix: Incorrect copied content of "Copy to clipboard".
+
+## 1.7.0 (2024/10/12)
+
+- feat: change encode algorithm of request param to "gzip + base64".
+- feat: Add more content info to referenced code.
+- feat: Support for switching display mode of method shortcuts.
+
 ## 1.6.4 (20240905)
 
--- feat: Lower the frequency of triggering inline completion to avoid annoying user.
--- feat: Remove checkPerformance & codeReview from context menu.
--- feat: Add Reference Code functionality.
+- feat: Lower the frequency of triggering inline completion to avoid annoying user.
+- feat: Remove checkPerformance & codeReview from context menu.
+- feat: Add Reference Code functionality.
 
 ## 1.6.3 (20240731)
 
--- fix: Chat context loss.
--- feat: Base64-encoding of request param.
--- fix: Method shortcut not working for some languages.
+- fix: Chat context loss.
+- feat: Base64-encoding of request param.
+- fix: Method shortcut not working for some languages.
 
 ## 1.6.2 (20240731)
 
--- fix: Fix error caused by ArrowUp and ArrowDown in the chat box.
+- fix: Fix error caused by ArrowUp and ArrowDown in the chat box.
 
 ## 1.6.1 (20240715)
 

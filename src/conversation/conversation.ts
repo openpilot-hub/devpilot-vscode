@@ -6,8 +6,8 @@ let convo: Conversation | null = null;
 export class Conversation {
   messages: ChatMessage[];
 
-  constructor(messages: ChatMessage[] = []) {
-    this.messages = messages;
+  constructor(messages?: ChatMessage[]) {
+    this.messages = messages || [];
   }
 
   clearAllMessages() {
@@ -39,6 +39,13 @@ export class Conversation {
     return this.messages.find((msg) => msg.id === id);
   }
 
+  getPrevMessageByID(id: string) {
+    const idx = this.messages.findIndex((msg) => msg.id === id);
+    if (idx > 0) {
+      return this.messages[idx - 1];
+    }
+  }
+
   addMessage(message: ChatMessage) {
     if (!message.id) {
       message.id = uuid();
@@ -68,17 +75,15 @@ export class Conversation {
     }
   }
 
-  replaceToLastMessage({ id, content, prompt }: { id?: string; content?: string; prompt?: string }, streaming: boolean = false) {
+  replaceToLastMessage(msg: Partial<ChatMessage>, streaming: boolean = false) {
     if (!this.lastMessage) return;
-    if (content) this.lastMessage.content = content;
-    // if (prompt)
-    //   this.lastMessage.prompt = prompt;
-    if (id) this.lastMessage.id = id;
+    Object.assign(this.lastMessage, msg);
     this.lastMessage.streaming = streaming;
   }
 
-  interruptLastMessage() {
+  interruptLastMessage(msg?: Partial<ChatMessage>) {
     if (!this.lastMessage) return;
+    msg && Object.assign(this.lastMessage, msg);
     this.lastMessage.streaming = false;
   }
 

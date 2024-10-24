@@ -1,20 +1,17 @@
 {
-	"compilerOptions": {
-		"module": "NodeNext",
-		"moduleResolution": "nodenext",
-		"target": "ES2020",
-		"lib": [
-			"ES2020",
-			"DOM",
-			"esnext"
-		],
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "esnext"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     },
-		"sourceMap": true,
-		"rootDir": "src",
-		"strict": true,
-		"jsx": "react"
-	}
+    "sourceMap": true,
+    "rootDir": ".",
+    "strict": true,
+    "jsx": "react"
+  },
+  "exclude": ["./_experimentations_"]
 }

@@ -4,14 +4,28 @@ import LoginController from '@/authentication/controller';
 import { logger } from './logger';
 import { PUBLIC_API, API, AUTH_ON } from '@/env';
 import { configuration } from '@/configuration';
+import { getCurrentPluginVersion } from './vscode-extend';
 
-export const ZAPI = (type: 'chat' | 'completion' | 'tracking' | 'rag', api: string = '') => {
+function transformRequest(data: any, headers: axios.AxiosRequestConfig['headers']) {
+  if (typeof data === 'string') {
+    return data;
+  }
+  return JSON.stringify(data);
+}
+
+export const ZAPI = (type: 'chat' | 'chatV2' | 'completion' | 'tracking' | 'rag', api: string = '') => {
   const { authType } = LoginController.instance.getLoginInfo();
-  if (type === 'chat') {
+  if (type === 'chatV2') {
     if (authType === 'wx') {
-      return PUBLIC_API + '/aigc/v1/chat/completions' + api;
+      return PUBLIC_API + '/aigc/v2/chat/completions';
     } else {
-      return API + '/devpilot/v1/chat/completions' + api;
+      return API + '/devpilot/v2/chat/completions';
+    }
+  } else if (type === 'chat') {
+    if (authType === 'wx') {
+      return PUBLIC_API + '/aigc/v1/chat/completions';
+    } else {
+      return API + '/devpilot/v1/chat/completions';
     }
   } else if (type === 'completion') {
     if (authType === 'wx') {
@@ -22,7 +36,7 @@ export const ZAPI = (type: 'chat' | 'completion' | 'tracking' | 'rag', api: stri
   } else if (type === 'tracking') {
     return PUBLIC_API + '/hub/devpilot/v1' + api;
   } else if (type === 'rag') {
-    return API + '/devpilot/v1/chat/completions' + api;
+    return API + '/devpilot/v2/chat/completions';
   } else {
     throw new Error('Unknown API type');
   }
@@ -31,7 +45,9 @@ export const ZAPI = (type: 'chat' | 'completion' | 'tracking' | 'rag', api: stri
 export default function request(options?: { timeout: number; repo?: string }) {
   const timeout = options?.timeout ?? 0;
   const repo = options?.repo ?? '';
-  const req = axios.create({ timeout });
+  const req = axios.create({ timeout, transformRequest });
+  req.defaults.headers['Content-Type'] = 'application/json; charset=utf-8';
+
   req.interceptors.request.use((request) => {
     logger.debug('Starting Request', request.url);
     return request;
@@ -43,7 +59,7 @@ export default function request(options?: { timeout: number; repo?: string }) {
   req.interceptors.request.use((config) => {
     if (AUTH_ON) {
       const { userId, token, authType } = LoginController.instance.getLoginInfo();
-      const pluginVersion = vscode.extensions.getExtension('Zhongan.devpilot')?.packageJSON.version;
+      const pluginVersion = getCurrentPluginVersion();
       const userAgent = `vscode-${vscode.version}|${pluginVersion}|${token}|${userId}`;
 
       logger.debug('authType', authType);
@@ -57,10 +73,53 @@ export default function request(options?: { timeout: number; repo?: string }) {
       config.headers.set('Embedded-Repos-V2', repo);
     }
 
-    config.headers.set('X-B3-Language', configuration().llmLocale() === 'Chinese' ? 'zh-CN' : 'en-US');
-    config.headers.setContentType('application/json; charset=utf-8');
+    const lang = configuration().llmLocale() === 'Chinese' ? 'zh-CN' : 'en-US';
+    config.headers.set('X-B3-Language', lang);
 
     return config;
   });
   return req;
 }
+
+// ======================= v2 ===================== //
+
+export const requestV2 = axios.create({ timeout: 0, transformRequest });
+
+requestV2.defaults.headers['Content-Type'] = 'application/json; charset=utf-8';
+
+requestV2.interceptors.request.use((request) => {
+  if (!/^http/.test(request.url!)) {
+    const { authType } = LoginController.instance.getLoginInfo();
+    request.url = (authType === 'wx' ? PUBLIC_API : API) + request.url;
+  }
+  logger.debug('Starting Request', request.url, request.data, request.params);
+  return request;
+});
+
+requestV2.interceptors.response.use((response) => {
+  logger.debug('Response:', response.status, response.statusText, response.config.url);
+  return response;
+});
+
+requestV2.interceptors.request.use((config) => {
+  if (AUTH_ON) {
+    const { userId, token, authType } = LoginController.instance.getLoginInfo();
+    const pluginVersion = getCurrentPluginVersion();
+    const userAgent = `vscode-${vscode.version}|${pluginVersion}|${token}|${userId}`;
+
+    logger.debug('authType', authType);
+    logger.debug('useragent', userAgent);
+
+    config.headers.set('User-Agent', userAgent);
+    config.headers.set('Auth-Type', authType);
+  }
+
+  if (config.repo) {
+    config.headers.set('Embedded-Repos-V2', config.repo);
+  }
+
+  const lang = configuration().llmLocale() === 'Chinese' ? 'zh-CN' : 'en-US';
+  config.headers.set('X-B3-Language', lang);
+
+  return config;
+});

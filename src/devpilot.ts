@@ -3,23 +3,24 @@ import vscode from 'vscode';
 import fs from 'fs';
 import { getCurrentConversation, startNewConversation } from '@/conversation/conversation';
 import { createAssistantMessage, createDividerMessage } from '@/completion/messages';
-import { buildDevpilotMessages, messageWithCodeblock } from '@/completion/promptBuilder';
+import { buildRecallMessage, messageByFunctionality, messageWithCodeblock } from '@/completion/promptBuilder';
 import { Configuration, configuration } from './configuration';
 import { createUserMessage } from './completion/messages';
-import { CodeReference, PluginCommand, ChatMessage, DevPilotFunctionality, LLMChatHandler } from './typing';
+import { CodeReference, PluginCommand, ChatMessage, DevPilotFunctionality, LLMChatHandler, IRecall } from './typing';
 import l10n from './l10n';
 import { getLanguageForFileExtension, getLanguageForMarkdown } from './utils/mapping';
-import { getRepositoryName } from './utils/git';
-import { isRepoEmbedded } from './services/rag';
+// import { getRepositoryName } from './utils/git';
+// import { isRepoEmbedded } from './services/rag';
 import { logger } from './utils/logger';
 import { trackCodeAction, trackLiking } from './services/tracking';
 import eventsProvider from '@/providers/EventsProvider';
 import { getCurrentPluginVersion } from './utils/vscode-extend';
 import LoginController from './authentication/controller';
 import { OFFICIAL_SITE } from '@/env';
-import { generateCommitMsg, NO_STAGED_FILES } from './services/chat';
+import { generateCommitMsg, NO_STAGED_FILES, predictV2 } from './services/chat';
 import { notifyLogin } from './services/login';
-import { sleep } from './utils';
+import { addIndentation, safeParse, sleep } from './utils';
+import { definitions2CodeReferences, Ext2LangMapper, resolveSymbolsDefinition } from './services/reference';
 
 export let globalDevpilot: Devpilot | undefined = undefined;
 
@@ -29,13 +30,13 @@ const getCodeRef = (editor: vscode.TextEditor, codeRef?: Partial<CodeReference>)
     languageId: editor.document.languageId,
     fileUrl: editor.document.uri.fsPath,
     fileName: basename(editor.document.uri.fsPath),
-    // document: editor.document.getText(),
+    document: editor.document.getText(),
     sourceCode,
     selectedStartLine: editor.selection.start.line,
     selectedStartColumn: editor.selection.start.character,
     selectedEndLine: editor.selection.end.line,
     selectedEndColumn: editor.selection.end.character,
-    visible: true,
+    // visible: true,
     ...codeRef,
   };
 };
@@ -61,6 +62,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
   private config: Configuration;
   private repoName: string = '';
   private repoEmbedded: boolean = false;
+  private chatAbortController: AbortController | null = null;
 
   constructor(context: vscode.ExtensionContext) {
     this._context = context;
@@ -99,15 +101,15 @@ export default class Devpilot implements vscode.WebviewViewProvider {
 
     this.registerCommands(this._context);
 
-    this.repoName = await getRepositoryName();
-    logger.debug('repoName', this.repoName);
-    if (this.config.llm().name === 'ZA') {
-      this.repoEmbedded = await isRepoEmbedded(this.repoName);
-    } else {
-      logger.debug("Don't check repo embedding for non-ZA provider");
-      this.repoEmbedded = false;
-    }
-    logger.debug('repoEmbedded', this.repoEmbedded);
+    // this.repoName = await getRepositoryName();
+    // logger.debug('repoName', this.repoName);
+    // if (this.config.llm().name === 'ZA') {
+    //   this.repoEmbedded = await isRepoEmbedded(this.repoName);
+    // } else {
+    //   logger.debug("Don't check repo embedding for non-ZA provider");
+    //   this.repoEmbedded = false;
+    // }
+    // logger.debug('repoEmbedded', this.repoEmbedded);
   }
 
   onThemeChanged(theme: string) {
@@ -239,15 +241,78 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     this.view?.webview.postMessage(msg);
   }
 
-  startNewConversatin() {
-    startNewConversation();
+  async handleRecall({ codeRef, functionality }: { codeRef?: CodeReference; functionality: DevPilotFunctionality }) {
+    if (!codeRef || /^[\wa-z0-9_$]+$/i.test(codeRef.sourceCode) || !Object.values(Ext2LangMapper).includes(codeRef.languageId)) {
+      return;
+    }
+
+    const convo = getCurrentConversation();
+    const recall: IRecall = { steps: [{ status: 'loading' }] };
+    convo.addMessage(createAssistantMessage({ recall, streaming: true }));
     this.renderConversation();
+
+    const recallMessage = buildRecallMessage({
+      codeRef,
+      functionality,
+    });
+
+    const abortController = new AbortController();
+    this.chatAbortController = abortController;
+
+    const setAborted = () => {
+      recall.steps[recall.steps.length - 1].status = 'terminated';
+      convo.replaceToLastMessage({ recall }, false);
+      this.renderConversation();
+    };
+
+    // for not yet enter streaming state
+    abortController.signal.addEventListener('abort', setAborted);
+
+    const res = await predictV2({ message: recallMessage, signal: abortController.signal });
+
+    if (abortController.signal.aborted) {
+      return;
+    }
+
+    if (res) {
+      const jsonRes: { symbols: string[]; other: string } = safeParse(res);
+      logger.info('recalled symbols:', jsonRes);
+      if (jsonRes?.symbols?.length) {
+        recall.steps = [{ status: 'done' }, { status: 'loading' }];
+        convo.replaceToLastMessage({ recall }, true);
+        this.renderConversation();
+        const definitions = await resolveSymbolsDefinition({
+          currentFilefsPath: codeRef.fileUrl,
+          abortController: abortController,
+          symbols: jsonRes.symbols,
+          docText: codeRef.document!,
+          startPosition:
+            codeRef.selectedStartColumn - 1 > 0
+              ? { row: codeRef.selectedStartLine, column: codeRef.selectedStartColumn - 1 }
+              : { row: codeRef.selectedStartLine - 1, column: -1 },
+        });
+        if (abortController.signal.aborted) {
+          return;
+        }
+        logger.info('recalled definitions:', definitions);
+        if (definitions?.length) {
+          recall.localRefs = definitions2CodeReferences(definitions);
+          logger.info('recalled localRefs:', recall.localRefs);
+        }
+      }
+    }
+
+    recall.steps = [{ status: 'done' }, { status: 'done' }, { status: 'loading' }];
+    convo.replaceToLastMessage({ recall }, true);
+    this.renderConversation();
+
+    return { abortController, recall };
   }
 
-  startNewConversatinWithChatMessage(initMessages: ChatMessage[]) {
+  startNewConversation(initMessages?: ChatMessage[]) {
+    this.chatAbortController?.abort();
     startNewConversation(initMessages);
     this.renderConversation();
-    this.streamingBotAnswerIntoConversation();
   }
 
   async starConversationOf(functionality: DevPilotFunctionality, msg?: ChatMessage) {
@@ -276,13 +341,22 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     if (functionality === DevPilotFunctionality.ReferenceCode) {
       this.postPluginMessage({ command: PluginCommand.ReferenceCode, payload: getCodeRef(editor) }); // the same to OpenChat
     } else {
-      const initMessages = buildDevpilotMessages({
-        codeRef: msg?.codeRef || getCodeRef(editor),
-        functionality,
-        language: getLanguageForMarkdown(msg?.codeRef?.languageId || editor.document.languageId),
-        llmLocale: this.config.llmLocale(),
+      const codeRef = msg?.codeRef || getCodeRef(editor);
+
+      const initMsg = createUserMessage({
+        content: messageByFunctionality(functionality),
+        codeRef,
+        commandType: functionality,
       });
-      this.startNewConversatinWithChatMessage(initMessages);
+
+      this.startNewConversation([initMsg]);
+
+      const recallRes = await this.handleRecall({ codeRef, functionality });
+      if (recallRes) {
+        this.streamingBotAnswerIntoConversation(recallRes.abortController, { recall: recallRes.recall });
+      } else {
+        this.streamingBotAnswerIntoConversation();
+      }
     }
   }
 
@@ -307,7 +381,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     }
     const [msg1, msg2] = deleted;
     if (msg1.streaming || msg2.streaming) {
-      this.chatHandler?.interrupt();
+      this.interruptChatStream();
     }
     this.renderConversation();
   }
@@ -322,7 +396,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
       return;
     }
     if (currMsg.streaming) {
-      this.chatHandler?.interrupt();
+      this.interruptChatStream();
     }
     convo.deleteMessage(msg);
     this.renderConversation();
@@ -355,7 +429,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     });
   }
 
-  async streamingBotAnswerIntoConversation() {
+  async streamingBotAnswerIntoConversation(abortController?: AbortController, message?: Partial<ChatMessage>) {
     const convo = getCurrentConversation();
 
     if (!convo.lastMessage) {
@@ -363,7 +437,6 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     }
 
     const isRAG = convo.lastMessage.content.includes('@repo');
-
     logger.info('isRAG', isRAG, convo.lastMessage.content, this.repoName, this.repoEmbedded);
 
     if (isRAG) {
@@ -373,8 +446,10 @@ export default class Devpilot implements vscode.WebviewViewProvider {
       // convo.lastMessage.prompt = convo.lastMessage.content.replace('@repo', '');
     }
 
-    convo.addMessage(createAssistantMessage({ content: '...' }));
-    this.renderConversation();
+    if (!message?.recall) {
+      convo.addMessage(createAssistantMessage({ content: '...' }));
+      this.renderConversation();
+    }
 
     let answer;
 
@@ -390,10 +465,16 @@ export default class Devpilot implements vscode.WebviewViewProvider {
 
       const llmMsgs = msgs.filter((msg) => !msg.content.startsWith('[C]') && msg.content !== '...');
 
-      const handler = await this.config.llm().chat(llmMsgs, isRAG ? { repo: this.repoName } : undefined);
+      if (!abortController) {
+        abortController = new AbortController();
+        this.chatAbortController = abortController!;
+      }
+
+      const signal = abortController!.signal;
+      const handler = await this.config.llm().chat(llmMsgs, isRAG ? { repo: this.repoName, signal } : { signal });
 
       handler.onText((text, { id }) => {
-        convo.replaceToLastMessage({ id, content: text, prompt: text }, true);
+        convo.replaceToLastMessage({ id, content: text }, true);
         this.renderConversation();
       });
 
@@ -405,14 +486,19 @@ export default class Devpilot implements vscode.WebviewViewProvider {
       this.chatHandler = handler;
       answer = await handler.result();
 
-      convo.replaceToLastMessage({ content: answer, prompt: answer }, false);
+      if (message?.recall) {
+        message.recall.steps[2] = { status: 'done' };
+      }
+      convo.replaceToLastMessage({ content: answer, recall: message?.recall }, false);
       this.renderConversation();
     } catch (error: any) {
       const err = error as Error;
       console.error('LLM Error', err);
+
+      abortController?.abort();
       if (/401/.test(err.message)) {
         const failText = `[C]${l10n.t('login.fail')}`;
-        convo.replaceToLastMessage({ content: failText, prompt: failText });
+        convo.replaceToLastMessage({ content: failText });
         convo.addMessage(createUserMessage({ content: `[C]${l10n.t('chat.login')}` }));
         this.renderConversation();
         notifyLogin();
@@ -424,6 +510,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
   }
 
   interruptChatStream() {
+    this.chatAbortController?.abort();
     this.chatHandler?.interrupt();
   }
 
@@ -448,30 +535,47 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     if (command === PluginCommand.AppendToConversation) {
       if (msg.role === 'user') {
         const chatMsg: ChatMessage = msg;
+        const inputContent = msg.content;
         if (chatMsg.codeRef) {
-          chatMsg.codeRef.visible = false;
-          chatMsg.content = messageWithCodeblock(
-            chatMsg.content,
-            chatMsg.codeRef.sourceCode,
-            getLanguageForMarkdown(chatMsg.codeRef.languageId)
-          );
+          // chatMsg.codeRef.visible = false;
+          // chatMsg.content = messageWithCodeblock(
+          //   chatMsg.content,
+          //   chatMsg.codeRef.sourceCode,
+          //   getLanguageForMarkdown(chatMsg.codeRef.languageId)
+          // );
         } else {
           // if selected code is not empty, add it to the conversation
           const editor = vscode.window.activeTextEditor;
           if (editor && editor.document.getText(editor.selection)) {
-            chatMsg.codeRef = getCodeRef(editor, { visible: false });
-            chatMsg.content = messageWithCodeblock(
-              chatMsg.content,
-              editor.document.getText(editor.selection),
-              getLanguageForMarkdown(editor.document.languageId)
-            );
+            chatMsg.codeRef = getCodeRef(editor);
+            // chatMsg.content = messageWithCodeblock(
+            //   chatMsg.content,
+            //   editor.document.getText(editor.selection),
+            //   getLanguageForMarkdown(editor.document.languageId)
+            // );
           }
         }
+
         const convo = getCurrentConversation();
+        const isCodeRefExists = chatMsg.codeRef?.sourceCode
+          ? convo.messages.some((m) => m.codeRef?.sourceCode === chatMsg.codeRef!.sourceCode)
+          : false;
+
+        if (isCodeRefExists) {
+          chatMsg.codeRef = undefined;
+          chatMsg.content = inputContent;
+        }
+
         chatMsg.commandType = DevPilotFunctionality.PureChat;
         convo.addMessage(chatMsg);
         this.renderConversation();
-        await this.streamingBotAnswerIntoConversation();
+
+        const recallRes = await this.handleRecall({ codeRef: chatMsg.codeRef, functionality: DevPilotFunctionality.PureChat });
+        if (recallRes) {
+          this.streamingBotAnswerIntoConversation(recallRes.abortController, { recall: recallRes.recall });
+        } else {
+          this.streamingBotAnswerIntoConversation();
+        }
       }
       return;
     }
@@ -488,7 +592,7 @@ export default class Devpilot implements vscode.WebviewViewProvider {
       return;
     }
     if (command === PluginCommand.ClearChatHistory) {
-      this.startNewConversatin();
+      this.startNewConversation();
       return;
     }
     if (command === PluginCommand.GotoSelectedCode) {
@@ -533,9 +637,19 @@ export default class Devpilot implements vscode.WebviewViewProvider {
     if (command === PluginCommand.InsertCodeAtCaret) {
       logger.debug(PluginCommand.InsertCodeAtCaret, msg);
       const editor = vscode.window.activeTextEditor;
-      if (editor) {
+      if (editor && msg.content) {
         editor.edit((editBuilder) => {
-          editBuilder.insert(editor.selection.active, msg.content);
+          let insertPosition = editor.selection.active;
+          const convo = getCurrentConversation();
+          const rawMsg = convo.getPrevMessageByID(msg.messageId);
+          const currentCodeRef = getCodeRef(editor);
+          if (!rawMsg?.codeRef || !currentCodeRef.sourceCode) {
+          } else if (currentCodeRef.sourceCode) {
+            const codeStartLine = editor.document.lineAt(currentCodeRef.selectedStartLine);
+            insertPosition = new vscode.Position(currentCodeRef.selectedStartLine - 1, codeStartLine.firstNonWhitespaceCharacterIndex);
+          }
+          const cnt = addIndentation(msg.content, insertPosition.character);
+          editBuilder.insert(insertPosition, cnt);
         });
       }
       trackCodeAction('INSERT', msg.messageId, msg.content, msg.language);
@@ -606,16 +720,16 @@ export default class Devpilot implements vscode.WebviewViewProvider {
           payload: { username: this.config.username() },
         });
       }, 500);
-      setTimeout(() => {
-        logger.debug('PresentCodeEmbeddedState', this.repoEmbedded, this.repoName);
-        this.postPluginMessage({
-          command: PluginCommand.PresentCodeEmbeddedState,
-          payload: {
-            repoEmbedded: this.repoEmbedded,
-            repoName: this.repoName,
-          },
-        });
-      }, 2000);
+      // setTimeout(() => {
+      //   logger.debug('PresentCodeEmbeddedState', this.repoEmbedded, this.repoName);
+      //   this.postPluginMessage({
+      //     command: PluginCommand.PresentCodeEmbeddedState,
+      //     payload: {
+      //       repoEmbedded: this.repoEmbedded,
+      //       repoName: this.repoName,
+      //     },
+      //   });
+      // }, 2000);
     });
   }
 
